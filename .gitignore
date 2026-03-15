@@ -1,0 +1,87 @@
+# Visual Studio
+.vs/
+.vsconfig
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Rider / JetBrains
+.idea/
+!.idea/runConfigurations
+*.DotSettings.user
+Intermediate/ProjectFiles/.Rider/
+Plugins/**/Intermediate/ProjectFiles/.Rider/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.iobj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Debug symbols
+*.pdb
+*.ipdb
+
+# Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*.ipa
+
+# Generated project files
+*.xcodeproj
+*.xcworkspace
+*.sln
+
+# Precompiled assets
+SourceArt/**/*.png
+SourceArt/**/*.tga
+
+# Unreal generated folders
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# Build outputs
+Build/*
+
+# Whitelist PakBlacklist files
+!Build/*/
+Build/*/**
+!Build/*/PakBlacklist*.txt
+
+# Don't ignore icons in Build
+!Build/**/*.ico
+
+# Built map data
+*_BuiltData.uasset
+
+# Logs / temp
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
