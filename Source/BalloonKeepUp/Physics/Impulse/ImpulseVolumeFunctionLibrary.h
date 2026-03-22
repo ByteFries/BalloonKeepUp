@@ -17,5 +17,5 @@ class BALLOONKEEPUP_API UImpulseVolumeFunctionLibrary : public UBlueprintFunctio
 public:
 	static void Activate(UPrimitiveComponent* Comp, FImpulseVolumeCommonData& Data);
 	static void Deactivate(UPrimitiveComponent* Comp, FImpulseVolumeCommonData& Data);
-	static void DrawDebug(const UShapeComponent* Comp, float DebugThickness);
+	static void DrawDebug(UShapeComponent* Comp, float DebugThickness = 0, FColor Color = FColor::Green);
 };

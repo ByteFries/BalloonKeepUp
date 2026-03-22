@@ -3,6 +3,8 @@
 
 #include "Physics/Impulse/ImpulseBoxComponent.h"
 
+#include "BalloonKeepUpCharacter.h"
+#include "ImpulseReceiver.h"
 #include "ImpulseVolumeFunctionLibrary.h"
 
 UImpulseBoxComponent::UImpulseBoxComponent()
@@ -36,35 +38,14 @@ void UImpulseBoxComponent::TickComponent(float DeltaTime, enum ELevelTick TickTy
 		return;
 	}
 
-	DrawDebugBox(
-		GetWorld(),
-		GetComponentLocation(),
-		GetScaledBoxExtent(),
-		GetComponentQuat(),
-		FColor::Cyan,
-		false,
-		0.f,
-		0,
-		1.f
-	);
+	UImpulseVolumeFunctionLibrary::DrawDebug(this, 1.f);
 }
 
 void UImpulseBoxComponent::ActivateVolume(float ActiveTime)
 {
 	UImpulseVolumeFunctionLibrary::Activate(this, CommonData);
 	
-	UE_LOG(LogTemp, Warning, TEXT("Before Enable: Registered=%d CanEverTick=%d TickEnabled=%d"),
-		IsRegistered(),
-		PrimaryComponentTick.bCanEverTick,
-		IsComponentTickEnabled());
-
 	SetComponentTickEnabled(true);
-
-	UE_LOG(LogTemp, Warning, TEXT("After Enable: Registered=%d CanEverTick=%d TickEnabled=%d"),
-		IsRegistered(),
-		PrimaryComponentTick.bCanEverTick,
-		IsComponentTickEnabled());
-	
 	
 	if (ActiveTime > 0.f)
 	{
@@ -94,10 +75,43 @@ void UImpulseBoxComponent::HandleBeginOverlap(UPrimitiveComponent* OverlappedCom
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	UE_LOG(LogTemp, Log, TEXT("BeginOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
+
+	if (!OtherActor || OtherActor == GetOwner())
+	{
+		return;
+	}
+
+	if (!OtherActor->GetClass()->ImplementsInterface(UImpulseReceiver::StaticClass()))
+	{
+		return;
+	}
+	
+	// 인터페이스 검사, 쿨타임 확인
+	FImpulseContext Context = BuildContext(OtherActor);
+	//Strategy 계산
+	// otherActor에 request 보내기
+	FImpulseRequest Request;
+	IImpulseReceiver::Execute_ReceiveImpulseRequest(OtherActor, Request);
 }
 
 void UImpulseBoxComponent::HandleEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	UE_LOG(LogTemp, Log, TEXT("EndOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
+}
+
+FImpulseContext UImpulseBoxComponent::BuildContext(AActor* OtherActor)
+{
+	FImpulseContext Context;
+	Context.InstigatorActor = GetOwner();
+	Context.SourceLocation = GetComponentLocation();
+	Context.TargetActor = OtherActor;
+	Context.TargetLocation = OtherActor->GetActorLocation();
+
+	if (ABalloonKeepUpCharacter* Char = Cast<ABalloonKeepUpCharacter>(GetOwner()))
+	{
+		Context.ChargeRatio = Char->GetChargeRatio();
+	}
+
+	return Context;
 }

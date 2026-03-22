@@ -49,6 +49,8 @@ public:
 		int32 OtherBodyIndex
 	);
 protected:
+	FImpulseContext BuildContext(AActor* OtherActor);
+	
 	FImpulseVolumeCommonData CommonData; // 전방선언하면 포인터만 사용 가능? 포인터는 사이즈 고정이라 가능하다.
 
 	FTimerHandle ActiveTimerHandle;

@@ -31,7 +31,11 @@ class ABalloonKeepUpCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
-	
+
+	bool bIsCharging = false;
+	float ChargeStartTime = 0.f;
+	float CurrentChargeRatio = 0.f;
+	float MaxSpikeChargeTime = 3.f;
 protected:
 
 	/** Jump Input Action */
@@ -77,6 +81,7 @@ protected:
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	
 protected:
 
 	/** Called for movement input */
@@ -104,7 +109,22 @@ public:
 	virtual void DoJumpEnd();
 	
 	UFUNCTION(BlueprintCallable, Category="Input")
-	void DoSpike();
+	void OnSpikeStarted();
+	
+	UFUNCTION(BlueprintCallable, Category="Input")
+	void OnSpikeTriggered();
+	
+	UFUNCTION(BlueprintCallable, Category="Input")
+	void OnSpikeCompleted();
+	
+	UFUNCTION(BlueprintCallable, Category="Input")
+	void OnSpikeCanceled();
+
+	UFUNCTION(BlueprintCallable, Category="Input")
+	void ExecuteSpike(float ChargeRatio);
+
+	UFUNCTION(BlueprintCallable, Category="Charge")
+	float GetChargeRatio() const {return CurrentChargeRatio;}
 public:
 
 	/** Returns CameraBoom subobject **/

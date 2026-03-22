@@ -5,13 +5,14 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Physics/CustomSimulate.h"
+#include "Physics/Impulse/ImpulseReceiver.h"
 #include "Balloon.generated.h"
 
 class UBalloonImpulseSourceComponent;
 class USphereComponent;
 
 UCLASS()
-class BALLOONKEEPUP_API ABalloon : public AActor, public ICustomSimulate
+class BALLOONKEEPUP_API ABalloon : public AActor, public ICustomSimulate, public IImpulseReceiver
 {
 	GENERATED_BODY()
 	
@@ -25,23 +26,11 @@ protected:
 	virtual void SimulatePhysics_Implementation(float DeltaTime) override;
 	// 히트 함수
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	UBalloonImpulseSourceComponent* FindImpulseSource(AActor* OtherActor, UPrimitiveComponent* OtherComp);
-
-	void OnBalloonBeginOverlap(UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult);
-	FVector ComputeImpulseFromSource(const UBalloonImpulseSourceComponent& SourceComponent, const AActor* SourceActor) const;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
-	UFUNCTION(BlueprintCallable, Category="Baloon|Phsysics")
-	void AddPendingImpulse(const FVector& Impulse);
-
+	virtual void ReceiveImpulseRequest_Implementation(const FImpulseRequest& Request) override;
 private:
 	void MoveWithSweepAndBounce(float DeltaTime);
 

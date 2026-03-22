@@ -73,7 +73,10 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::Look);
 
 
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::DoSpike);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnSpikeStarted);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnSpikeTriggered);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnSpikeCompleted);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnSpikeCanceled);
 	}
 	else
 	{
@@ -141,7 +144,42 @@ void ABalloonKeepUpCharacter::DoJumpEnd()
 	StopJumping();
 }
 
-void ABalloonKeepUpCharacter::DoSpike()
+void ABalloonKeepUpCharacter::OnSpikeStarted()
 {
-	NewSpikeBox->ActivateVolume(1.f);
+	bIsCharging = true;
+	ChargeStartTime = GetWorld()->GetTimeSeconds();
+	CurrentChargeRatio = 0;
 }
+
+void ABalloonKeepUpCharacter::OnSpikeTriggered()
+{
+	if (!bIsCharging) return;
+
+	const float Elapsed = GetWorld()->GetTimeSeconds() - ChargeStartTime;
+	CurrentChargeRatio = FMath::Clamp(Elapsed / MaxSpikeChargeTime, 0.f, 1.f);
+}
+
+void ABalloonKeepUpCharacter::OnSpikeCompleted()
+{
+	if (!bIsCharging) return;
+
+	bIsCharging = false;
+
+	const float FinalChargeRatio = CurrentChargeRatio;
+	
+	ExecuteSpike(FinalChargeRatio);
+	
+	CurrentChargeRatio = 0.f;
+}
+
+void ABalloonKeepUpCharacter::OnSpikeCanceled()
+{
+	bIsCharging = false;
+	CurrentChargeRatio = 0.f;
+}
+
+void ABalloonKeepUpCharacter::ExecuteSpike(float ChargeRatio)
+{
+	NewSpikeBox->ActivateVolume(0.5f);
+}
+
