@@ -7,6 +7,7 @@
 #include "Physics/CustomSimulate.h"
 #include "Balloon.generated.h"
 
+class UBalloonImpulseSourceComponent;
 class USphereComponent;
 
 UCLASS()
@@ -24,9 +25,22 @@ protected:
 	virtual void SimulatePhysics_Implementation(float DeltaTime) override;
 	// 히트 함수
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	UBalloonImpulseSourceComponent* FindImpulseSource(AActor* OtherActor, UPrimitiveComponent* OtherComp);
+
+	void OnBalloonBeginOverlap(UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult);
+	FVector ComputeImpulseFromSource(const UBalloonImpulseSourceComponent& SourceComponent, const AActor* SourceActor) const;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	
+	UFUNCTION(BlueprintCallable, Category="Baloon|Phsysics")
+	void AddPendingImpulse(const FVector& Impulse);
 
 private:
 	void MoveWithSweepAndBounce(float DeltaTime);
@@ -63,6 +77,11 @@ private:
 	// 연속 노이즈 추가?
 	
 	bool IsActive = true;
+
+	UPROPERTY(EditDefaultsOnly, Category="Baloon|Phsysics")
+	float MaxImpulseSpeed = 1200.f;
+
+	FVector PendingImpulse = FVector::ZeroVector;
 };
 
 

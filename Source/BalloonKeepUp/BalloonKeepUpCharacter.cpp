@@ -11,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "BalloonKeepUp.h"
+#include "Physics/Impulse/ImpulseBoxComponent.h"
 
 ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 {
@@ -46,6 +47,11 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	SpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("SpikeBox"));
+	SpikeBox->SetupAttachment(RootComponent);
+	
+	NewSpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("NewSpikeBox"));
+	NewSpikeBox->SetupAttachment(RootComponent);
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
@@ -65,6 +71,9 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::Look);
+
+
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::DoSpike);
 	}
 	else
 	{
@@ -130,4 +139,9 @@ void ABalloonKeepUpCharacter::DoJumpEnd()
 {
 	// signal the character to stop jumping
 	StopJumping();
+}
+
+void ABalloonKeepUpCharacter::DoSpike()
+{
+	NewSpikeBox->ActivateVolume(1.f);
 }

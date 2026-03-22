@@ -7,6 +7,7 @@
 #include "Logging/LogMacros.h"
 #include "BalloonKeepUpCharacter.generated.h"
 
+class UImpulseBoxComponent;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
@@ -49,6 +50,23 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* MouseLookAction;
 
+	/** Mouse Look Input Action */
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* SpikeAction;
+
+	/** Mouse Look Input Action */
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* ReceiveAction;
+
+	/** Mouse Look Input Action */
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* DiveAction;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<UImpulseBoxComponent> SpikeBox;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<UImpulseBoxComponent> NewSpikeBox;
 public:
 
 	/** Constructor */
@@ -66,7 +84,7 @@ protected:
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
-
+	
 public:
 
 	/** Handles move inputs from either controls or UI interfaces */
@@ -84,7 +102,9 @@ public:
 	/** Handles jump pressed inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
-
+	
+	UFUNCTION(BlueprintCallable, Category="Input")
+	void DoSpike();
 public:
 
 	/** Returns CameraBoom subobject **/
