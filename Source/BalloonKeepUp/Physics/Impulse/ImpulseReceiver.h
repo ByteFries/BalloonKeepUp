@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+#include "ImpulseTypes.h"
 #include "ImpulseReceiver.generated.h"
 
-struct FImpulseRequest;
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
 class UImpulseReceiver : public UInterface
@@ -25,5 +25,4 @@ class BALLOONKEEPUP_API IImpulseReceiver
 public:
 	UFUNCTION(BlueprintNativeEvent)
 	void ReceiveImpulseRequest(const FImpulseRequest& Request);
-
 };

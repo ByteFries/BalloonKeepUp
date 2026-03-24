@@ -47,8 +47,8 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
-	SpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("SpikeBox"));
-	SpikeBox->SetupAttachment(RootComponent);
+	//SpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("SpikeBox"));
+	//SpikeBox->SetupAttachment(RootComponent);
 	
 	NewSpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("NewSpikeBox"));
 	NewSpikeBox->SetupAttachment(RootComponent);

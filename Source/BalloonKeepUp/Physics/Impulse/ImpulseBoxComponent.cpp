@@ -5,18 +5,14 @@
 
 #include "BalloonKeepUpCharacter.h"
 #include "ImpulseReceiver.h"
+#include "ImpulseStrategy.h"
 #include "ImpulseVolumeFunctionLibrary.h"
 
 UImpulseBoxComponent::UImpulseBoxComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
-	SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SetGenerateOverlapEvents(false);
-
-	SetCollisionObjectType(ECC_WorldDynamic);
-	SetCollisionResponseToAllChannels(ECR_Ignore);
-	SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 }
 
 void UImpulseBoxComponent::BeginPlay()
@@ -86,11 +82,8 @@ void UImpulseBoxComponent::HandleBeginOverlap(UPrimitiveComponent* OverlappedCom
 		return;
 	}
 	
-	// 인터페이스 검사, 쿨타임 확인
 	FImpulseContext Context = BuildContext(OtherActor);
-	//Strategy 계산
-	// otherActor에 request 보내기
-	FImpulseRequest Request;
+	FImpulseRequest Request = CommonData.Strategy->Compute(Context);
 	IImpulseReceiver::Execute_ReceiveImpulseRequest(OtherActor, Request);
 }
 
@@ -100,15 +93,21 @@ void UImpulseBoxComponent::HandleEndOverlap(UPrimitiveComponent* OverlappedCompo
 	UE_LOG(LogTemp, Log, TEXT("EndOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
 }
 
-FImpulseContext UImpulseBoxComponent::BuildContext(AActor* OtherActor)
+FImpulseContext UImpulseBoxComponent::BuildContext(AActor* OtherActor) const
 {
+	AActor* Owner = GetOwner();
+	
 	FImpulseContext Context;
-	Context.InstigatorActor = GetOwner();
-	Context.SourceLocation = GetComponentLocation();
+	Context.InstigatorActor = Owner;
 	Context.TargetActor = OtherActor;
-	Context.TargetLocation = OtherActor->GetActorLocation();
+	Context.BasePower = CommonData.BasePower;
+	Context.DirectionBias = CommonData.DirectionBias;
+	Context.BaseDirection = CommonData.BaseDirection;
+	Context.AxisWeight = CommonData.AxisWeight;
+	Context.VolumeTransform = GetComponentTransform();
+	Context.DirectionSpace = CommonData.DirectionSpace;
 
-	if (ABalloonKeepUpCharacter* Char = Cast<ABalloonKeepUpCharacter>(GetOwner()))
+	if (ABalloonKeepUpCharacter* Char = Cast<ABalloonKeepUpCharacter>(Owner))
 	{
 		Context.ChargeRatio = Char->GetChargeRatio();
 	}

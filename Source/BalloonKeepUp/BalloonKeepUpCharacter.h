@@ -66,8 +66,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* DiveAction;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
-	TObjectPtr<UImpulseBoxComponent> SpikeBox;
+	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
+	//TObjectPtr<UImpulseBoxComponent> SpikeBox;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
 	TObjectPtr<UImpulseBoxComponent> NewSpikeBox;

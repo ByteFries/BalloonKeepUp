@@ -6,10 +6,18 @@
 #include "UObject/NoExportTypes.h"
 #include "ImpulseTypes.generated.h"
 
+class UImpulseStrategy;
 /**
  * 
  */
-// context, request 추가할 예정
+UENUM()
+enum class EImpulseDirectionSpace : uint8
+{
+	World,
+	OwnerLocal,
+	VolumeLocal
+};
+
 USTRUCT(BlueprintType)
 struct FImpulseVolumeCommonData
 {
@@ -19,13 +27,22 @@ struct FImpulseVolumeCommonData
 	bool bIsActive = false;
 
 	UPROPERTY(EditAnywhere, Category = "Impulse")
-	float BaseStrength = 0.f;
+	float BasePower = 0.f;
 
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	FVector BaseDirection = FVector::ZeroVector;
+	
 	UPROPERTY(EditAnywhere, Category = "Impulse")
 	FVector DirectionBias = FVector::ZeroVector;
 
 	UPROPERTY(EditAnywhere, Category = "Impulse")
 	FVector AxisWeight = FVector(1.f, 1.f, 1.f);
+
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	EImpulseDirectionSpace DirectionSpace = EImpulseDirectionSpace::World;
+
+	UPROPERTY(EditAnywhere, Instanced, Category = "Impulse")
+	TObjectPtr<UImpulseStrategy> Strategy;
 
 	bool bDebugDraw = true;
 	// 추후에 식별용 GameplayTag 넣을지도
@@ -36,20 +53,32 @@ USTRUCT(BlueprintType)
 struct FImpulseContext
 {
 	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadOnly)
+	
+	UPROPERTY(EditAnywhere, Category = "Impulse")
 	TObjectPtr<AActor> InstigatorActor = nullptr;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, Category = "Impulse")
 	TObjectPtr<AActor> TargetActor = nullptr;
 
-	UPROPERTY(BlueprintReadOnly)
-	FVector SourceLocation = FVector::ZeroVector;
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	FTransform VolumeTransform;
 
-	UPROPERTY(BlueprintReadOnly)
-	FVector TargetLocation = FVector::ZeroVector;
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	EImpulseDirectionSpace DirectionSpace;
+	
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	FVector BaseDirection = FVector::ZeroVector; 
+	// 
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	FVector DirectionBias = FVector::ZeroVector;
+	// 특정 축에 가중치 넣어서 조절할 때
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	FVector AxisWeight = FVector(1.f, 1.f, 1.f); 
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, Category = "Impulse")
+	float BasePower = 0.f;
+
+	UPROPERTY(EditAnywhere, Category = "Impulse")
 	float ChargeRatio = 0.f;
 };
 
@@ -58,6 +87,9 @@ struct FImpulseRequest
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, Category = "Impulse")
-	FVector Impulse;
+	UPROPERTY(BlueprintReadWrite)
+	FVector Direction;
+	
+	UPROPERTY(BlueprintReadWrite)
+	float Power;
 };

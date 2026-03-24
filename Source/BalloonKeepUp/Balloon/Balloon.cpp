@@ -44,11 +44,20 @@ void ABalloon::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 {
 	if (!HasAuthority() || !IsActive) return;
-
+	const bool bShouldLog = !PendingImpulse.IsNearlyZero();
+	if (bShouldLog)
+	{
+		UE_LOG(LogTemp, Log, TEXT("=== SimulatePhysics Start ==="));
+		UE_LOG(LogTemp, Log, TEXT("Velocity Start: %s"), *Velocity.ToString());
+		
+	}
+	
 	if (!PendingImpulse.IsNearlyZero())
 	{
 		Velocity += PendingImpulse / FMath::Max(Mass, KINDA_SMALL_NUMBER);
+		UE_LOG(LogTemp, Log, TEXT("Velocity After Impulse: %s"), *Velocity.ToString());
 		Velocity = Velocity.GetClampedToMaxSize(MaxImpulseSpeed);
+		UE_LOG(LogTemp, Log, TEXT("Velocity After Clamp: %s"), *Velocity.ToString());
 		PendingImpulse = FVector::ZeroVector;
 	}
 	
@@ -59,15 +68,31 @@ void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 	Force += FVector(0,0,Mass * GravityZ);
 	
 	const float Speed = Velocity.Size();
-
+	
 	if (Speed > KINDA_SMALL_NUMBER)
 	{
-		Force += -K1 * Velocity;
-		Force += -K2 * Velocity * Speed;
-	}
+		const FVector LinearDrag = -K1 * Velocity;
+		const FVector QuadDrag = -K2 * Velocity * Speed;
 
+		if (bShouldLog)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Speed Before Drag: %.2f"), Speed);
+			UE_LOG(LogTemp, Log, TEXT("LinearDrag: %s"), *LinearDrag.ToString());
+			UE_LOG(LogTemp, Log, TEXT("QuadDrag: %s"), *QuadDrag.ToString());
+		}
+		
+		Force += LinearDrag;
+		Force += QuadDrag;
+	}
+	
 	const FVector Acceleration = Force / Mass;
 	Velocity += Acceleration * DeltaTime;
+	if (bShouldLog)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Total Force: %s"), *Force.ToString());
+		UE_LOG(LogTemp, Log, TEXT("Acceleration: %s"), *Acceleration.ToString());
+		UE_LOG(LogTemp, Log, TEXT("Velocity Before Move: %s"), *Velocity.ToString());
+	}
 	
 	MoveWithSweepAndBounce(DeltaTime);
 }
@@ -82,8 +107,16 @@ void ABalloon::Tick(float DeltaTime)
 void ABalloon::ReceiveImpulseRequest_Implementation(const FImpulseRequest& Request)
 {
 	if (!IsActive) return;
-
-	PendingImpulse += Request.Impulse;
+	
+	UE_LOG(LogTemp, Log, TEXT("[Balloon] ReceiveImpulseRequest"));
+	UE_LOG(LogTemp, Log, TEXT("  Power: %.2f"), Request.Power);
+	UE_LOG(LogTemp, Log, TEXT("  Direction: %s"), *Request.Direction.ToString());
+	
+	const FVector AppliedImpulse = Request.Power * Request.Direction;
+	
+	UE_LOG(LogTemp, Log, TEXT("  AppliedImpulse: %s"), *AppliedImpulse.ToString());
+	UE_LOG(LogTemp, Log, TEXT("  PendingImpulse (Before): %s"), *PendingImpulse.ToString());
+	PendingImpulse += Request.Power * Request.Direction;
 }
 
 void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
@@ -92,7 +125,7 @@ void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
 
 	float RemainingTime = DeltaTime;
 	const int32 MaxIterations = 3;
-	constexpr float SurfaceFriction = 0.6f;
+	constexpr float SurfaceFriction = 0.9f;
 	constexpr float StopSpeed = 5.f;
 	constexpr float PushOutEpsilon = 0.1f;
 	const float BounceThreshold = 15.f;
@@ -110,6 +143,12 @@ void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
 
 		if (!Hit.bBlockingHit) break;
 
+		UE_LOG(LogTemp, Warning, TEXT("[Balloon] BlockingHit: Actor=%s Comp=%s Normal=%s Time=%.3f"),
+	*GetNameSafe(Hit.GetActor()),
+	*GetNameSafe(Hit.GetComponent()),
+	*Hit.ImpactNormal.ToString(),
+	Hit.Time);
+		
 		RemainingTime *= (1.f - Hit.Time);
 		
 		const FVector N = Hit.ImpactNormal.GetSafeNormal();
