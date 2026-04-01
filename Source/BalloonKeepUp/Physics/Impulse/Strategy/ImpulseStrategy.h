@@ -3,9 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ImpulseTypes.h"
+#include "../ImpulseTypes.h"
 #include "UObject/NoExportTypes.h"
 #include "ImpulseStrategy.generated.h"
+struct FImpulseContext;
 /**
  * 
  */

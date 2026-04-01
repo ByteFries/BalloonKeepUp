@@ -12,6 +12,7 @@
 #include "InputActionValue.h"
 #include "BalloonKeepUp.h"
 #include "Physics/Impulse/ImpulseBoxComponent.h"
+#include "Physics/Impulse/Fragment/ImpulseFragment_Charge.h"
 
 ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 {
@@ -46,12 +47,14 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
-
-	//SpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("SpikeBox"));
-	//SpikeBox->SetupAttachment(RootComponent);
 	
-	NewSpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("NewSpikeBox"));
-	NewSpikeBox->SetupAttachment(RootComponent);
+	SpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("SpikeBox"));
+	SpikeBox->SetupAttachment(RootComponent);
+
+	NewReceiveBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("NewReceiveBox"));
+	NewReceiveBox->SetupAttachment(RootComponent);
+
+	ChargeFragment = CreateDefaultSubobject<UImpulseFragment_Charge>(TEXT("ChargeFragment"));
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
@@ -73,10 +76,15 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::Look);
 
 
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnSpikeStarted);
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnSpikeTriggered);
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnSpikeCompleted);
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnSpikeCanceled);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, ECharacterState::Spike);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnChargeTriggered);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
+
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, ECharacterState::Receive);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnChargeTriggered);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
 	}
 	else
 	{
@@ -144,42 +152,72 @@ void ABalloonKeepUpCharacter::DoJumpEnd()
 	StopJumping();
 }
 
-void ABalloonKeepUpCharacter::OnSpikeStarted()
-{
-	bIsCharging = true;
-	ChargeStartTime = GetWorld()->GetTimeSeconds();
-	CurrentChargeRatio = 0;
-}
-
-void ABalloonKeepUpCharacter::OnSpikeTriggered()
-{
-	if (!bIsCharging) return;
-
-	const float Elapsed = GetWorld()->GetTimeSeconds() - ChargeStartTime;
-	CurrentChargeRatio = FMath::Clamp(Elapsed / MaxSpikeChargeTime, 0.f, 1.f);
-}
-
-void ABalloonKeepUpCharacter::OnSpikeCompleted()
-{
-	if (!bIsCharging) return;
-
-	bIsCharging = false;
-
-	const float FinalChargeRatio = CurrentChargeRatio;
-	
-	ExecuteSpike(FinalChargeRatio);
-	
-	CurrentChargeRatio = 0.f;
-}
-
-void ABalloonKeepUpCharacter::OnSpikeCanceled()
-{
-	bIsCharging = false;
-	CurrentChargeRatio = 0.f;
-}
-
 void ABalloonKeepUpCharacter::ExecuteSpike(float ChargeRatio)
 {
-	NewSpikeBox->ActivateVolume(0.5f);
+	SpikeBox->ActivateVolume(0.5f);
 }
 
+
+void ABalloonKeepUpCharacter::ExecuteReceive(float ChargeRatio)
+{
+	NewReceiveBox->ActivateVolume(0.5f);
+}
+
+void ABalloonKeepUpCharacter::OnChargeStarted(ECharacterState State)
+{
+	CurrentState = State;
+	bIsCharging = true;
+	ChargeStartTime = GetWorld()->GetTimeSeconds();
+	ChargeFragment->ChargeRatio = 0;
+}
+
+void ABalloonKeepUpCharacter::OnChargeTriggered()
+{
+	if (!bIsCharging) return;
+	const float Elapsed = GetWorld()->GetTimeSeconds() - ChargeStartTime;
+	ChargeFragment->ChargeRatio = FMath::Clamp(Elapsed / MaxChargeTime, 0.f, 1.f);
+}
+
+void ABalloonKeepUpCharacter::OnChargeCompleted()
+{
+	if (!bIsCharging) return;
+
+	bIsCharging = false;
+
+	const float FinalChargeRatio = ChargeFragment->ChargeRatio;
+
+	switch (CurrentState)
+	{
+		case ECharacterState::Receive:
+			ExecuteReceive(FinalChargeRatio);
+			break;
+		case ECharacterState::Spike:
+			ExecuteSpike(FinalChargeRatio);
+			break;
+		default:
+			break;
+	}
+	
+	ChargeFragment->ChargeRatio = 0.f;
+	CurrentState = ECharacterState::Idle;
+}
+
+void ABalloonKeepUpCharacter::OnChargeCanceled()
+{
+	bIsCharging = false;
+	ChargeFragment->ChargeRatio = 0;
+}
+
+void ABalloonKeepUpCharacter::ProvideFragments_Implementation(FImpulseContext& Context)
+{
+	if (!ChargeFragment) return;
+
+	TSubclassOf<UImpulseFragment> Key = ChargeFragment->GetClass();
+	
+	if (Context.ImpulseFragments.Contains(Key))
+	{
+		ensureMsgf(false, TEXT("Duplicate ImpulseFragment type: %s"), *Key->GetName());
+	}
+	
+	Context.ImpulseFragments.Add(Key, ChargeFragment);
+}

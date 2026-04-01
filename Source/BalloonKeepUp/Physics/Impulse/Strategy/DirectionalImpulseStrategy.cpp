@@ -1,7 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Physics/Impulse/DirectionalImpulseStrategy.h"
+#include "Physics/Impulse/Strategy/DirectionalImpulseStrategy.h"
+
+#include "Physics/Impulse/ImpulseContext.h"
 
 FImpulseRequest UDirectionalImpulseStrategy::Compute_Implementation(const FImpulseContext& Context) const
 {

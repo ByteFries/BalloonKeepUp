@@ -5,7 +5,7 @@
 
 #include "BalloonKeepUpCharacter.h"
 #include "ImpulseReceiver.h"
-#include "ImpulseStrategy.h"
+#include "Strategy/ImpulseStrategy.h"
 #include "ImpulseVolumeFunctionLibrary.h"
 
 UImpulseBoxComponent::UImpulseBoxComponent()
@@ -107,10 +107,10 @@ FImpulseContext UImpulseBoxComponent::BuildContext(AActor* OtherActor) const
 	Context.VolumeTransform = GetComponentTransform();
 	Context.DirectionSpace = CommonData.DirectionSpace;
 
-	if (ABalloonKeepUpCharacter* Char = Cast<ABalloonKeepUpCharacter>(Owner))
+	if (Owner->GetClass()->ImplementsInterface(UImpulseFragmentProvider::StaticClass()))
 	{
-		Context.ChargeRatio = Char->GetChargeRatio();
+		IImpulseFragmentProvider::Execute_ProvideFragments(Owner, Context);
 	}
-
+	
 	return Context;
 }

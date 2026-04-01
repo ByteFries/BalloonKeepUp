@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Physics/Impulse/ImpulseStrategy.h"
+#include "Physics/Impulse/Strategy/ImpulseStrategy.h"
 #include "DirectionalImpulseStrategy.generated.h"
 /**
  * 

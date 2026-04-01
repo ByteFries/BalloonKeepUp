@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ImpulseContext.h"
 #include "ImpulseTypes.h"
 #include "Components/BoxComponent.h"
 #include "Runtime/SlateCore/Private/Application/ActiveTimerHandle.h"

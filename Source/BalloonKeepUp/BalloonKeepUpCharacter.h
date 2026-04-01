@@ -5,8 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
+#include "Physics/Impulse/Fragment/ImpulseFragmentProvider.h"
 #include "BalloonKeepUpCharacter.generated.h"
 
+class UImpulseFragment_Charge;
 class UImpulseBoxComponent;
 class USpringArmComponent;
 class UCameraComponent;
@@ -19,8 +21,17 @@ DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
  *  A simple player-controllable third person character
  *  Implements a controllable orbiting camera
  */
+UENUM(Blueprintable)
+enum class ECharacterState : uint8
+{
+	Idle = 0,
+	Receive,
+	Spike,
+	Jump
+};
+
 UCLASS(abstract)
-class ABalloonKeepUpCharacter : public ACharacter
+class ABalloonKeepUpCharacter : public ACharacter, public IImpulseFragmentProvider
 {
 	GENERATED_BODY()
 
@@ -33,9 +44,9 @@ class ABalloonKeepUpCharacter : public ACharacter
 	UCameraComponent* FollowCamera;
 
 	bool bIsCharging = false;
+	
 	float ChargeStartTime = 0.f;
-	float CurrentChargeRatio = 0.f;
-	float MaxSpikeChargeTime = 3.f;
+	float MaxChargeTime = 3.f;
 protected:
 
 	/** Jump Input Action */
@@ -66,11 +77,16 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* DiveAction;
 	
-	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
-	//TObjectPtr<UImpulseBoxComponent> SpikeBox;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<UImpulseBoxComponent> SpikeBox;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
-	TObjectPtr<UImpulseBoxComponent> NewSpikeBox;
+	TObjectPtr<UImpulseBoxComponent> NewReceiveBox;
+
+	ECharacterState CurrentState = ECharacterState::Idle;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse")
+	TObjectPtr<UImpulseFragment_Charge> ChargeFragment;
 public:
 
 	/** Constructor */
@@ -107,24 +123,26 @@ public:
 	/** Handles jump pressed inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
-	
-	UFUNCTION(BlueprintCallable, Category="Input")
-	void OnSpikeStarted();
-	
-	UFUNCTION(BlueprintCallable, Category="Input")
-	void OnSpikeTriggered();
-	
-	UFUNCTION(BlueprintCallable, Category="Input")
-	void OnSpikeCompleted();
-	
-	UFUNCTION(BlueprintCallable, Category="Input")
-	void OnSpikeCanceled();
 
 	UFUNCTION(BlueprintCallable, Category="Input")
 	void ExecuteSpike(float ChargeRatio);
+	
+	UFUNCTION(BlueprintCallable, Category="Input")
+	void ExecuteReceive(float ChargeRatio);
 
 	UFUNCTION(BlueprintCallable, Category="Charge")
-	float GetChargeRatio() const {return CurrentChargeRatio;}
+	void OnChargeStarted(ECharacterState State);
+
+	UFUNCTION(BlueprintCallable, Category="Charge")
+	void OnChargeTriggered();
+	
+	UFUNCTION(BlueprintCallable, Category="Charge")
+	void OnChargeCompleted();
+
+	UFUNCTION(BlueprintCallable, Category="Charge")
+	void OnChargeCanceled();
+
+	virtual void ProvideFragments_Implementation(FImpulseContext& Context) override;
 public:
 
 	/** Returns CameraBoom subobject **/
@@ -133,4 +151,6 @@ public:
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
+
+
 
