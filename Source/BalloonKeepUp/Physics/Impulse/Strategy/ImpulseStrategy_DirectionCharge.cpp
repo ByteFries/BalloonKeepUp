@@ -1,11 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Physics/Impulse/Strategy/DirectionalImpulseStrategy.h"
+#include "Physics/Impulse/Strategy/ImpulseStrategy_DirectionCharge.h"
 
 #include "Physics/Impulse/ImpulseContext.h"
+#include "Physics/Impulse/Fragment/ImpulseFragment_Charge.h"
 
-FImpulseRequest UDirectionalImpulseStrategy::Compute_Implementation(const FImpulseContext& Context) const
+FImpulseRequest UImpulseStrategy_DirectionCharge::Compute_Implementation(const FImpulseContext& Context) const
 {
 	FImpulseRequest Request;
 	FVector Direction = Context.BaseDirection;
@@ -19,14 +20,23 @@ FImpulseRequest UDirectionalImpulseStrategy::Compute_Implementation(const FImpul
 	
 	UE_LOG(LogTemp, Log, TEXT("Direction: %s"), *Direction.ToString());
 	
+	
 	FVector FinalDirection = ResolveDirection(Context, Direction);
 	
-	UE_LOG(LogTemp, Log, TEXT("Final Direction: %s"), *Direction.ToString());
+	UE_LOG(LogTemp, Log, TEXT("Final Direction: %s"), *FinalDirection.ToString());
 	
 	float Power = Context.BasePower;
 	
 	Request.Direction = FinalDirection;
 	Request.Power = Power;
-
+	
+	if (const UImpulseFragment_Charge* Charge = Context.GetFragment<UImpulseFragment_Charge>())
+	{
+		Request.Power *= Charge->ChargeRatio;
+		UE_LOG(LogTemp, Log, TEXT("BasePower=%f, Ratio=%f, FinalPower=%f"),
+		Context.BasePower,
+		Charge->ChargeRatio,
+		Request.Power);
+	}
 	return Request;
 }

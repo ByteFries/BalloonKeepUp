@@ -40,9 +40,6 @@ struct FImpulseContext
 	float BasePower = 0.f;
 
 	UPROPERTY(EditAnywhere, Category = "Impulse")
-	float ChargeRatio = 0.f;
-
-	UPROPERTY(EditAnywhere, Category = "Impulse")
 	TMap<TSubclassOf<UImpulseFragment>, TObjectPtr<UImpulseFragment>> ImpulseFragments;
 	
 	template<typename T>
@@ -51,9 +48,9 @@ struct FImpulseContext
 		static_assert(TIsDerivedFrom<T, UImpulseFragment>::IsDerived, 
 	"T must derive from UImpulseFragment");
 		
-		if (UImpulseFragment* const* Found = ImpulseFragments.Find(T::StaticClass()))
+		if (const TObjectPtr<UImpulseFragment>* Found = ImpulseFragments.Find(T::StaticClass()))
 		{
-			return Cast<T>(*Found);
+			return Cast<T>(Found->Get());
 		}
 
 		return nullptr;

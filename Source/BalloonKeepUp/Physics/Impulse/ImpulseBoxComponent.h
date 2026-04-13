@@ -50,10 +50,11 @@ public:
 		int32 OtherBodyIndex
 	);
 protected:
-	FImpulseContext BuildContext(AActor* OtherActor) const;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Impulse")
 	FImpulseVolumeCommonData CommonData;
 
 	FTimerHandle ActiveTimerHandle;
+
+	FImpulseContext Context;
 };

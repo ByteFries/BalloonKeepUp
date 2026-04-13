@@ -68,9 +68,11 @@ private:
 	bool IsActive = true;
 
 	UPROPERTY(EditDefaultsOnly, Category="Baloon|Phsysics")
-	float MaxImpulseSpeed = 1200.f;
+	float MaxImpulseSpeed = 2400.f;
 
 	FVector PendingImpulse = FVector::ZeroVector;
+
+	//bool bSkipClampOnce = false;
 };
 
 

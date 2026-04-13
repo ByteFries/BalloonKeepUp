@@ -53,6 +53,21 @@ void UImpulseBoxComponent::ActivateVolume(float ActiveTime)
 			ActiveTime,
 			false
 		);
+
+		AActor* Owner = GetOwner();
+		Context = FImpulseContext();
+		Context.InstigatorActor = Owner;
+		Context.BasePower = CommonData.BasePower;
+		Context.DirectionBias = CommonData.DirectionBias;
+		Context.BaseDirection = CommonData.BaseDirection;
+		Context.AxisWeight = CommonData.AxisWeight;
+		Context.VolumeTransform = GetComponentTransform();
+		Context.DirectionSpace = CommonData.DirectionSpace;
+
+		if (Owner->GetClass()->ImplementsInterface(UImpulseFragmentProvider::StaticClass()))
+		{
+			IImpulseFragmentProvider::Execute_ProvideFragments(Owner, Context);
+		}
 	}
 }
 
@@ -81,8 +96,7 @@ void UImpulseBoxComponent::HandleBeginOverlap(UPrimitiveComponent* OverlappedCom
 	{
 		return;
 	}
-	
-	FImpulseContext Context = BuildContext(OtherActor);
+	Context.TargetActor = OtherActor;
 	FImpulseRequest Request = CommonData.Strategy->Compute(Context);
 	IImpulseReceiver::Execute_ReceiveImpulseRequest(OtherActor, Request);
 }
@@ -91,26 +105,4 @@ void UImpulseBoxComponent::HandleEndOverlap(UPrimitiveComponent* OverlappedCompo
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	UE_LOG(LogTemp, Log, TEXT("EndOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
-}
-
-FImpulseContext UImpulseBoxComponent::BuildContext(AActor* OtherActor) const
-{
-	AActor* Owner = GetOwner();
-	
-	FImpulseContext Context;
-	Context.InstigatorActor = Owner;
-	Context.TargetActor = OtherActor;
-	Context.BasePower = CommonData.BasePower;
-	Context.DirectionBias = CommonData.DirectionBias;
-	Context.BaseDirection = CommonData.BaseDirection;
-	Context.AxisWeight = CommonData.AxisWeight;
-	Context.VolumeTransform = GetComponentTransform();
-	Context.DirectionSpace = CommonData.DirectionSpace;
-
-	if (Owner->GetClass()->ImplementsInterface(UImpulseFragmentProvider::StaticClass()))
-	{
-		IImpulseFragmentProvider::Execute_ProvideFragments(Owner, Context);
-	}
-	
-	return Context;
 }

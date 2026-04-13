@@ -49,7 +49,7 @@ void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 	{
 		UE_LOG(LogTemp, Log, TEXT("=== SimulatePhysics Start ==="));
 		UE_LOG(LogTemp, Log, TEXT("Velocity Start: %s"), *Velocity.ToString());
-		
+		//bSkipClampOnce = true;
 	}
 	
 	if (!PendingImpulse.IsNearlyZero())
@@ -95,6 +95,8 @@ void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 	}
 	
 	MoveWithSweepAndBounce(DeltaTime);
+
+	
 }
 
 // Called every frame

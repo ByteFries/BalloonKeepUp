@@ -54,10 +54,13 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	NewReceiveBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("NewReceiveBox"));
 	NewReceiveBox->SetupAttachment(RootComponent);
 
-	ChargeFragment = CreateDefaultSubobject<UImpulseFragment_Charge>(TEXT("ChargeFragment"));
+	NewDiveBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("NewDiveBox"));
+	NewDiveBox->SetupAttachment(RootComponent);
+
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
+
 
 void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -85,10 +88,22 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnChargeTriggered);
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
+
+		EnhancedInputComponent->BindAction(DiveAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnDivePressed);
 	}
 	else
 	{
 		UE_LOG(LogBalloonKeepUp, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+	}
+}
+
+void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (CurrentState == ECharacterState::Dive)
+	{
+		OnDiveEnd();
 	}
 }
 
@@ -152,15 +167,15 @@ void ABalloonKeepUpCharacter::DoJumpEnd()
 	StopJumping();
 }
 
-void ABalloonKeepUpCharacter::ExecuteSpike(float ChargeRatio)
+void ABalloonKeepUpCharacter::ExecuteSpike(float ActiveTime)
 {
-	SpikeBox->ActivateVolume(0.5f);
+	SpikeBox->ActivateVolume(ActiveTime);
 }
 
 
-void ABalloonKeepUpCharacter::ExecuteReceive(float ChargeRatio)
+void ABalloonKeepUpCharacter::ExecuteReceive(float ActiveTime)
 {
-	NewReceiveBox->ActivateVolume(0.5f);
+	NewReceiveBox->ActivateVolume(ActiveTime);
 }
 
 void ABalloonKeepUpCharacter::OnChargeStarted(ECharacterState State)
@@ -168,14 +183,14 @@ void ABalloonKeepUpCharacter::OnChargeStarted(ECharacterState State)
 	CurrentState = State;
 	bIsCharging = true;
 	ChargeStartTime = GetWorld()->GetTimeSeconds();
-	ChargeFragment->ChargeRatio = 0;
+	ChargeRatio = 0;
 }
 
 void ABalloonKeepUpCharacter::OnChargeTriggered()
 {
 	if (!bIsCharging) return;
 	const float Elapsed = GetWorld()->GetTimeSeconds() - ChargeStartTime;
-	ChargeFragment->ChargeRatio = FMath::Clamp(Elapsed / MaxChargeTime, 0.f, 1.f);
+	ChargeRatio = FMath::Clamp(Elapsed / MaxChargeTime, 0.3f, 1.5f);
 }
 
 void ABalloonKeepUpCharacter::OnChargeCompleted()
@@ -184,7 +199,7 @@ void ABalloonKeepUpCharacter::OnChargeCompleted()
 
 	bIsCharging = false;
 
-	const float FinalChargeRatio = ChargeFragment->ChargeRatio;
+	const float FinalChargeRatio = ChargeRatio;
 
 	switch (CurrentState)
 	{
@@ -198,26 +213,47 @@ void ABalloonKeepUpCharacter::OnChargeCompleted()
 			break;
 	}
 	
-	ChargeFragment->ChargeRatio = 0.f;
+	ChargeRatio = 0.f;
 	CurrentState = ECharacterState::Idle;
 }
 
 void ABalloonKeepUpCharacter::OnChargeCanceled()
 {
 	bIsCharging = false;
-	ChargeFragment->ChargeRatio = 0;
+	ChargeRatio = 0;
+}
+
+void ABalloonKeepUpCharacter::OnDivePressed()
+{
+	CurrentState = ECharacterState::Dive;
+	
+	FVector Forward = GetActorForwardVector();
+	FVector DiveVel = Forward * DivePower;
+	DiveVel.Z = DiveZ;
+
+	GetCapsuleComponent()->SetCapsuleHalfHeight(20, true);
+	
+	LaunchCharacter(DiveVel, true, true);
+	NewDiveBox->ActivateVolume(20);
+}
+
+void ABalloonKeepUpCharacter::OnDiveEnd()
+{
+	CurrentState = ECharacterState::Idle;
+	GetCapsuleComponent()->SetCapsuleHalfHeight(90, false);
+	NewDiveBox->DeactivateVolume();	
 }
 
 void ABalloonKeepUpCharacter::ProvideFragments_Implementation(FImpulseContext& Context)
-{
-	if (!ChargeFragment) return;
-
-	TSubclassOf<UImpulseFragment> Key = ChargeFragment->GetClass();
+{	
+	UImpulseFragment_Charge* Charge = NewObject<UImpulseFragment_Charge>(this);
+	Charge->ChargeRatio = ChargeRatio;
+	TSubclassOf<UImpulseFragment> Key = Charge->GetClass();
 	
 	if (Context.ImpulseFragments.Contains(Key))
 	{
 		ensureMsgf(false, TEXT("Duplicate ImpulseFragment type: %s"), *Key->GetName());
 	}
 	
-	Context.ImpulseFragments.Add(Key, ChargeFragment);
+	Context.ImpulseFragments.Add(Key, Charge);
 }

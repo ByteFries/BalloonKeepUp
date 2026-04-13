@@ -27,7 +27,8 @@ enum class ECharacterState : uint8
 	Idle = 0,
 	Receive,
 	Spike,
-	Jump
+	Jump,
+	Dive
 };
 
 UCLASS(abstract)
@@ -46,7 +47,19 @@ class ABalloonKeepUpCharacter : public ACharacter, public IImpulseFragmentProvid
 	bool bIsCharging = false;
 	
 	float ChargeStartTime = 0.f;
-	float MaxChargeTime = 3.f;
+
+	float MaxChargeTime = 1.f;
+
+	float ChargeRatio = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
+	float DivePower = 1000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
+	float DiveZ = 100.f;
+	
+	
+	ECharacterState CurrentState = ECharacterState::Idle;
 protected:
 
 	/** Jump Input Action */
@@ -83,21 +96,19 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
 	TObjectPtr<UImpulseBoxComponent> NewReceiveBox;
 
-	ECharacterState CurrentState = ECharacterState::Idle;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
+	TObjectPtr<UImpulseBoxComponent> NewDiveBox;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse")
-	TObjectPtr<UImpulseFragment_Charge> ChargeFragment;
 public:
 
 	/** Constructor */
-	ABalloonKeepUpCharacter();	
-
+	ABalloonKeepUpCharacter();
 protected:
 
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	
+	virtual void Landed(const FHitResult& Hit) override;
 protected:
 
 	/** Called for movement input */
@@ -125,10 +136,10 @@ public:
 	virtual void DoJumpEnd();
 
 	UFUNCTION(BlueprintCallable, Category="Input")
-	void ExecuteSpike(float ChargeRatio);
+	void ExecuteSpike(float ActiveTime = 0.5f);
 	
 	UFUNCTION(BlueprintCallable, Category="Input")
-	void ExecuteReceive(float ChargeRatio);
+	void ExecuteReceive(float ActiveTime = 0.5f);
 
 	UFUNCTION(BlueprintCallable, Category="Charge")
 	void OnChargeStarted(ECharacterState State);
@@ -141,6 +152,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Charge")
 	void OnChargeCanceled();
+
+	UFUNCTION(BlueprintCallable)
+	void OnDivePressed();
+
+	UFUNCTION(BlueprintCallable)
+	void OnDiveEnd();
 
 	virtual void ProvideFragments_Implementation(FImpulseContext& Context) override;
 public:
