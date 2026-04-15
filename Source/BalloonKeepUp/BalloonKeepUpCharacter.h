@@ -98,6 +98,8 @@ private:
 	UFUNCTION()
 	void OnRep_ChangeState();
 
+	void SetState(ECharacterState NewState);
+
 	virtual void Landed(const FHitResult& Hit) override;
 
 	void Move(const FInputActionValue& Value);

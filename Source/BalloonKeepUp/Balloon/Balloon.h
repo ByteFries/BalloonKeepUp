@@ -32,6 +32,11 @@ public:
 	
 	virtual void ReceiveImpulseRequest_Implementation(const FImpulseRequest& Request) override;
 private:
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	UFUNCTION()
+	void OnRep_ServerLocation();
+	
 	void MoveWithSweepAndBounce(float DeltaTime);
 
 	UPROPERTY(EditAnywhere)
@@ -73,6 +78,14 @@ private:
 	FVector PendingImpulse = FVector::ZeroVector;
 
 	//bool bSkipClampOnce = false;
+
+	UPROPERTY(ReplicatedUsing=OnRep_ServerLocation)
+	FVector ReplicatedLocation;
+
+	FVector TargetLocation;
+
+	UPROPERTY(EditAnywhere, Category="Net Smoothing")
+	float SmoothSpeed = 24.f;
 };
 
 

@@ -102,23 +102,15 @@ void ABalloonKeepUpCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 void ABalloonKeepUpCharacter::OnRep_ChangeState()
 {
 	PredictState = ReplicatedState;
-	
-	if (ReplicatedState == ECharacterState::Dive)
-	{
-		GetCapsuleComponent()->SetCapsuleHalfHeight(40, true);
-		UE_LOG(LogTemp, Warning, TEXT("Root = %s"), *GetNameSafe(GetRootComponent()));
-		UE_LOG(LogTemp, Warning, TEXT("Capsule = %s"), *GetNameSafe(GetCapsuleComponent()));
-		UE_LOG(LogTemp, Warning, TEXT("Capsule HalfHeight = %f"), GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
-		float Radius, HalfHeight;
-		GetCapsuleComponent()->GetUnscaledCapsuleSize(Radius, HalfHeight);
+	SetState(ReplicatedState);
+}
 
-		UE_LOG(LogTemp, Warning, TEXT("Capsule Size: Radius=%f HalfHeight=%f"), Radius, HalfHeight);
-	}
+void ABalloonKeepUpCharacter::SetState(ECharacterState NewState)
+{
+	if (NewState != ECharacterState::Dive)
+		GetCapsuleComponent()->SetCapsuleHalfHeight(90, true);
 	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Capsule HalfHeight = %f"), GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
-		GetCapsuleComponent()->SetCapsuleHalfHeight(90, false);
-	}
+		GetCapsuleComponent()->SetCapsuleHalfHeight(40, false);
 }
 
 void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
@@ -213,6 +205,7 @@ void ABalloonKeepUpCharacter::Server_RequestStartCharge_Implementation(ECharacte
 	if (!HasAuthority() || bIsCharging) return;
 	// 조건은 추후 추가
 	ReplicatedState = State;
+	SetState(ReplicatedState);
 	ChargeStartTime = GetWorld()->GetTimeSeconds();
 	ChargeRatio = 0;
 }
@@ -260,6 +253,7 @@ void ABalloonKeepUpCharacter::Server_CancelCharge_Implementation()
 	bIsCharging = false;
 	ChargeRatio = 0.f;
 	ReplicatedState = ECharacterState::Idle;
+	SetState(ReplicatedState);
 }
 
 void ABalloonKeepUpCharacter::OnDivePressed()
@@ -271,6 +265,7 @@ void ABalloonKeepUpCharacter::Server_RequestDive_Implementation()
 {
 	if (!HasAuthority()) return;
 	ReplicatedState = ECharacterState::Dive;
+	SetState(ReplicatedState);
 	
 	FVector Forward = GetActorForwardVector();
 	FVector DiveVel = Forward * DivePower;
@@ -290,7 +285,7 @@ void ABalloonKeepUpCharacter::Server_EndDive_Implementation()
 	if (!HasAuthority()) return;
 
 	ReplicatedState = ECharacterState::Idle;
-	GetCapsuleComponent()->SetCapsuleHalfHeight(90, false);
+	SetState(ReplicatedState);
 	NewDiveBox->DeactivateVolume();
 }
 

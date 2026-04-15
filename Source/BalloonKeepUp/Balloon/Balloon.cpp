@@ -4,6 +4,7 @@
 #include "Balloon/Balloon.h"
 
 #include "Components/SphereComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "Physics/CustomSimWorldSubsystem.h"
 #include "Physics/Impulse/ImpulseTypes.h"
 
@@ -19,6 +20,7 @@ ABalloon::ABalloon()
 	MeshComp->SetupAttachment(RootComponent);
 
 	MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	bReplicates = true;
 }
 
 // Called when the game starts or when spawned
@@ -26,6 +28,8 @@ void ABalloon::BeginPlay()
 {
 	Super::BeginPlay();
 
+	TargetLocation = GetActorLocation();
+	
 	if (UCustomSimWorldSubsystem* Sim = GetWorld()->GetSubsystem<UCustomSimWorldSubsystem>())
 	{
 		Sim->Register(this);
@@ -38,6 +42,7 @@ void ABalloon::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		Sim->Unregister(this);
 	}
+	
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -45,6 +50,7 @@ void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 {
 	if (!HasAuthority() || !IsActive) return;
 	const bool bShouldLog = !PendingImpulse.IsNearlyZero();
+	
 	if (bShouldLog)
 	{
 		UE_LOG(LogTemp, Log, TEXT("=== SimulatePhysics Start ==="));
@@ -55,9 +61,9 @@ void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 	if (!PendingImpulse.IsNearlyZero())
 	{
 		Velocity += PendingImpulse / FMath::Max(Mass, KINDA_SMALL_NUMBER);
-		UE_LOG(LogTemp, Log, TEXT("Velocity After Impulse: %s"), *Velocity.ToString());
+		if (bShouldLog) UE_LOG(LogTemp, Log, TEXT("Velocity After Impulse: %s"), *Velocity.ToString());
 		Velocity = Velocity.GetClampedToMaxSize(MaxImpulseSpeed);
-		UE_LOG(LogTemp, Log, TEXT("Velocity After Clamp: %s"), *Velocity.ToString());
+		if (bShouldLog) UE_LOG(LogTemp, Log, TEXT("Velocity After Clamp: %s"), *Velocity.ToString());
 		PendingImpulse = FVector::ZeroVector;
 	}
 	
@@ -95,8 +101,8 @@ void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 	}
 	
 	MoveWithSweepAndBounce(DeltaTime);
-
 	
+	ReplicatedLocation = GetActorLocation();
 }
 
 // Called every frame
@@ -104,6 +110,22 @@ void ABalloon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (HasAuthority()) return;
+	if (!IsActive) return;
+
+	const FVector Current = GetActorLocation();
+
+	float Dist = FVector::Dist(Current, TargetLocation);
+
+	if (Dist > 200.f)
+	{
+		SetActorLocation(TargetLocation, false); // 순간이동
+	}
+	else
+	{
+		FVector NewLoc = FMath::VInterpTo(Current, TargetLocation, DeltaTime, SmoothSpeed);
+		AddActorWorldOffset(NewLoc - Current, true);
+	}
 }
 
 void ABalloon::ReceiveImpulseRequest_Implementation(const FImpulseRequest& Request)
@@ -119,6 +141,20 @@ void ABalloon::ReceiveImpulseRequest_Implementation(const FImpulseRequest& Reque
 	UE_LOG(LogTemp, Log, TEXT("  AppliedImpulse: %s"), *AppliedImpulse.ToString());
 	UE_LOG(LogTemp, Log, TEXT("  PendingImpulse (Before): %s"), *PendingImpulse.ToString());
 	PendingImpulse += Request.Power * Request.Direction;
+}
+
+void ABalloon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABalloon, ReplicatedLocation);
+}
+
+void ABalloon::OnRep_ServerLocation()
+{
+	if (HasAuthority()) return;
+	//SetActorLocation(ReplicatedLocation, false);
+	TargetLocation = ReplicatedLocation;
 }
 
 void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
@@ -181,3 +217,4 @@ void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
 		CollisionComp->AddWorldOffset(N * PushOutEpsilon, false);
 	}
 }
+
