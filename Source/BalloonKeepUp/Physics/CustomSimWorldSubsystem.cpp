@@ -21,7 +21,7 @@ void UCustomSimWorldSubsystem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (!bIsActive) return;
+	if (!bIsActive || GetWorld()->GetNetMode() == NM_Client) return;
 
 	RemainingTime += DeltaTime;
 
@@ -39,7 +39,6 @@ void UCustomSimWorldSubsystem::Tick(float DeltaTime)
 			{
 				if (Obj->GetClass()->ImplementsInterface(UCustomSimulate::StaticClass()))
 					ICustomSimulate::Execute_SimulatePhysics(Obj, FixedDt);
-				
 			}
 		}
 
@@ -55,7 +54,7 @@ TStatId UCustomSimWorldSubsystem::GetStatId() const
 
 bool UCustomSimWorldSubsystem::Register(UObject* Object)
 {
-	if (!Object) return false;
+	if (GetWorld()->GetNetMode() == NM_Client || !Object) return false;
 	
 	if (!Object->GetClass()->ImplementsInterface(UCustomSimulate::StaticClass()))
 	{
@@ -69,6 +68,6 @@ bool UCustomSimWorldSubsystem::Register(UObject* Object)
 
 void UCustomSimWorldSubsystem::Unregister(UObject* Object)
 {
-	if (!Objects.Contains(Object)) return;
+	if ((GetWorld()->GetNetMode() == NM_Client) || !Objects.Contains(Object)) return;
 	Objects.Remove(Object);
 }

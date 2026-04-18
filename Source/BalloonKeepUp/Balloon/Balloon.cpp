@@ -132,14 +132,14 @@ void ABalloon::ReceiveImpulseRequest_Implementation(const FImpulseRequest& Reque
 {
 	if (!IsActive) return;
 	
-	UE_LOG(LogTemp, Log, TEXT("[Balloon] ReceiveImpulseRequest"));
-	UE_LOG(LogTemp, Log, TEXT("  Power: %.2f"), Request.Power);
-	UE_LOG(LogTemp, Log, TEXT("  Direction: %s"), *Request.Direction.ToString());
+	//UE_LOG(LogTemp, Log, TEXT("[Balloon] ReceiveImpulseRequest"));
+	//UE_LOG(LogTemp, Log, TEXT("  Power: %.2f"), Request.Power);
+	//UE_LOG(LogTemp, Log, TEXT("  Direction: %s"), *Request.Direction.ToString());
 	
 	const FVector AppliedImpulse = Request.Power * Request.Direction;
 	
-	UE_LOG(LogTemp, Log, TEXT("  AppliedImpulse: %s"), *AppliedImpulse.ToString());
-	UE_LOG(LogTemp, Log, TEXT("  PendingImpulse (Before): %s"), *PendingImpulse.ToString());
+	//UE_LOG(LogTemp, Log, TEXT("  AppliedImpulse: %s"), *AppliedImpulse.ToString());
+	//UE_LOG(LogTemp, Log, TEXT("  PendingImpulse (Before): %s"), *PendingImpulse.ToString());
 	PendingImpulse += Request.Power * Request.Direction;
 }
 

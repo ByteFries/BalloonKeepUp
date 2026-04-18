@@ -11,26 +11,25 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "BalloonKeepUp.h"
+#include "State/CharacterState.h"
 #include "Net/UnrealNetwork.h"
 #include "Physics/Impulse/ImpulseBoxComponent.h"
 #include "Physics/Impulse/Fragment/ImpulseFragment_Charge.h"
+#include "State/CharacterState_Charge.h"
+#include "State/CharacterState_Dive.h"
+#include "State/CharacterState_Idle.h"
 
 ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 {
-	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 		
-	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
-	// Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
-
-	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
-	// instead of recompiling to adjust them
+	
 	GetCharacterMovement()->JumpZVelocity = 500.f;
 	GetCharacterMovement()->AirControl = 0.35f;
 	GetCharacterMovement()->MaxWalkSpeed = 500.f;
@@ -38,13 +37,11 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
-	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 400.0f;
 	CameraBoom->bUsePawnControlRotation = true;
 
-	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
@@ -62,6 +59,16 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 }
 
 
+void ABalloonKeepUpCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	States.Empty();
+
+	States.Add(ECharacterState::Idle, NewObject<UCharacterState_Idle>(this));
+	States.Add(ECharacterState::Dive, NewObject<UCharacterState_Dive>(this));
+	States.Add(ECharacterState::Charge, NewObject<UCharacterState_Charge>(this));
+}
+
 void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
@@ -75,12 +82,10 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::Look);
 		
 		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, ECharacterState::Spike);
-		//EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnChargeTriggered);
 		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
 		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
 
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, ECharacterState::Receive);
-		//EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnChargeTriggered);
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
 
@@ -101,16 +106,34 @@ void ABalloonKeepUpCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 
 void ABalloonKeepUpCharacter::OnRep_ChangeState()
 {
-	PredictState = ReplicatedState;
-	SetState(ReplicatedState);
+	SetState();
 }
 
-void ABalloonKeepUpCharacter::SetState(ECharacterState NewState)
+void ABalloonKeepUpCharacter::SetState()
 {
-	if (NewState != ECharacterState::Dive)
+	if (CurrentState != ECharacterState::Dive)
 		GetCapsuleComponent()->SetCapsuleHalfHeight(90, true);
 	else
 		GetCapsuleComponent()->SetCapsuleHalfHeight(40, false);
+	
+	if (States.Find(CurrentState))
+	{
+		if (HasAuthority()) States[CurrentState]->ExitState_Server();
+
+		if (IsLocallyControlled()) States[CurrentState]->EnterState_Client();
+	}
+
+	CurrentState = ReplicatedState;
+	
+	if (!States.Find(CurrentState))
+	{
+		ensureMsgf(false, TEXT("Can't Find State"));
+		return;
+	}
+	
+	if (HasAuthority()) States[CurrentState]->EnterState_Server();
+
+	if (IsLocallyControlled()) States[CurrentState]->EnterState_Client();
 }
 
 void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
@@ -125,19 +148,15 @@ void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
 
 void ABalloonKeepUpCharacter::Move(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
-	// route the input
 	DoMove(MovementVector.X, MovementVector.Y);
 }
 
 void ABalloonKeepUpCharacter::Look(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
-	// route the input
 	DoLook(LookAxisVector.X, LookAxisVector.Y);
 }
 
@@ -145,17 +164,13 @@ void ABalloonKeepUpCharacter::DoMove(float Right, float Forward)
 {
 	if (GetController() != nullptr)
 	{
-		// find out which way is forward
 		const FRotator Rotation = GetController()->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 
-		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
 	}
@@ -205,7 +220,7 @@ void ABalloonKeepUpCharacter::Server_RequestStartCharge_Implementation(ECharacte
 	if (!HasAuthority() || bIsCharging) return;
 	// 조건은 추후 추가
 	ReplicatedState = State;
-	SetState(ReplicatedState);
+	SetState();
 	ChargeStartTime = GetWorld()->GetTimeSeconds();
 	ChargeRatio = 0;
 }
@@ -253,7 +268,7 @@ void ABalloonKeepUpCharacter::Server_CancelCharge_Implementation()
 	bIsCharging = false;
 	ChargeRatio = 0.f;
 	ReplicatedState = ECharacterState::Idle;
-	SetState(ReplicatedState);
+	SetState();
 }
 
 void ABalloonKeepUpCharacter::OnDivePressed()
@@ -265,7 +280,7 @@ void ABalloonKeepUpCharacter::Server_RequestDive_Implementation()
 {
 	if (!HasAuthority()) return;
 	ReplicatedState = ECharacterState::Dive;
-	SetState(ReplicatedState);
+	SetState();
 	
 	FVector Forward = GetActorForwardVector();
 	FVector DiveVel = Forward * DivePower;
@@ -285,7 +300,7 @@ void ABalloonKeepUpCharacter::Server_EndDive_Implementation()
 	if (!HasAuthority()) return;
 
 	ReplicatedState = ECharacterState::Idle;
-	SetState(ReplicatedState);
+	SetState();
 	NewDiveBox->DeactivateVolume();
 }
 

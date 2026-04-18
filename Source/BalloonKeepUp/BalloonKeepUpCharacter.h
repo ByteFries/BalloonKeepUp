@@ -8,6 +8,7 @@
 #include "Physics/Impulse/Fragment/ImpulseFragmentProvider.h"
 #include "BalloonKeepUpCharacter.generated.h"
 
+class UCharacterState;
 class UImpulseFragment_Charge;
 class UImpulseBoxComponent;
 class USpringArmComponent;
@@ -28,7 +29,8 @@ enum class ECharacterState : uint8
 	Receive,
 	Spike,
 	Jump,
-	Dive
+	Dive,
+	Charge
 };
 
 UCLASS(abstract)
@@ -56,9 +58,6 @@ public:
 
 	UFUNCTION(Server, Unreliable)
 	void Server_RequestStartCharge(ECharacterState State);
-
-	//UFUNCTION(BlueprintCallable, Category="Charge")
-	//void OnChargeTriggered();
 	
 	UFUNCTION(BlueprintCallable, Category="Charge")
 	void OnChargeCompleted();
@@ -91,6 +90,7 @@ public:
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
 private:
+	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
@@ -98,7 +98,7 @@ private:
 	UFUNCTION()
 	void OnRep_ChangeState();
 
-	void SetState(ECharacterState NewState);
+	void SetState();
 
 	virtual void Landed(const FHitResult& Hit) override;
 
@@ -161,11 +161,14 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
 	float DiveZ = 100.f;
+	
+	UPROPERTY()
+	TMap<ECharacterState, TObjectPtr<UCharacterState>> States;
 
 	UPROPERTY(ReplicatedUsing=OnRep_ChangeState)
-	ECharacterState ReplicatedState = ECharacterState::Idle;
-	
-	ECharacterState PredictState = ECharacterState::Idle;
+	ECharacterState ReplicatedState;
+
+	ECharacterState CurrentState;
 };
 
 

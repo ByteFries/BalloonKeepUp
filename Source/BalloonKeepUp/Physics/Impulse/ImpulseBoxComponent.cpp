@@ -39,6 +39,8 @@ void UImpulseBoxComponent::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 void UImpulseBoxComponent::ActivateVolume(float ActiveTime)
 {
+	if (GetOwner() && !GetOwner()->HasAuthority()) return;
+	
 	UImpulseVolumeFunctionLibrary::Activate(this, CommonData);
 	
 	SetComponentTickEnabled(true);
@@ -85,7 +87,9 @@ void UImpulseBoxComponent::DeactivateVolume()
 void UImpulseBoxComponent::HandleBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Log, TEXT("BeginOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
+	if (GetOwner() && !GetOwner()->HasAuthority()) return;
+	
+	//UE_LOG(LogTemp, Log, TEXT("BeginOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
 
 	if (!OtherActor || OtherActor == GetOwner())
 	{
@@ -104,5 +108,5 @@ void UImpulseBoxComponent::HandleBeginOverlap(UPrimitiveComponent* OverlappedCom
 void UImpulseBoxComponent::HandleEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	UE_LOG(LogTemp, Log, TEXT("EndOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
+	//UE_LOG(LogTemp, Log, TEXT("EndOverlap: %s"), OtherActor ? *OtherActor->GetName() : TEXT("None"));
 }
