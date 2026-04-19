@@ -11,13 +11,14 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "BalloonKeepUp.h"
-#include "State/CharacterState.h"
+#include "State/StateBase.h"
 #include "Net/UnrealNetwork.h"
 #include "Physics/Impulse/ImpulseBoxComponent.h"
 #include "Physics/Impulse/Fragment/ImpulseFragment_Charge.h"
-#include "State/CharacterState_Charge.h"
-#include "State/CharacterState_Dive.h"
-#include "State/CharacterState_Idle.h"
+#include "State/StateMachineComponent.h"
+#include "State/State_Charge.h"
+#include "State/State_Dive.h"
+#include "State/State_Idle.h"
 
 ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 {
@@ -45,6 +46,8 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+	StateMachine = CreateDefaultSubobject<UStateMachineComponent>(TEXT("StateMachine"));
 	
 	SpikeBox = CreateDefaultSubobject<UImpulseBoxComponent>(TEXT("SpikeBox"));
 	SpikeBox->SetupAttachment(RootComponent);
@@ -59,14 +62,36 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 }
 
 
+void ABalloonKeepUpCharacter::RequestDiveAction()
+{
+	
+}
+
+void ABalloonKeepUpCharacter::RequestChargeAction(float ChargeRatio)
+{
+	if (CurrentState != ECharacterState::Charge || !HasAuthority()) return;
+	
+	switch (ReplicatedChargeAction)
+	{
+	case EChargeAction::Receive:
+		NewReceiveBox->ActivateVolume(0.5f);
+		break;
+	case EChargeAction::Spike:
+		SpikeBox->ActivateVolume(0.5);
+		break;
+	default:
+		break;
+	}
+}
+
 void ABalloonKeepUpCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	States.Empty();
 
-	States.Add(ECharacterState::Idle, NewObject<UCharacterState_Idle>(this));
-	States.Add(ECharacterState::Dive, NewObject<UCharacterState_Dive>(this));
-	States.Add(ECharacterState::Charge, NewObject<UCharacterState_Charge>(this));
+	States.Add(ECharacterState::Idle, NewObject<UState_Idle>(this));
+	States.Add(ECharacterState::Dive, NewObject<UState_Dive>(this));
+	States.Add(ECharacterState::Charge, NewObject<UState_Charge>(this));
 }
 
 void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -81,11 +106,11 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::Look);
 		
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, ECharacterState::Spike);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, EChargeAction::Spike);
 		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
 		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
 
-		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, ECharacterState::Receive);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, EChargeAction::Receive);
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
 		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
 
@@ -111,16 +136,11 @@ void ABalloonKeepUpCharacter::OnRep_ChangeState()
 
 void ABalloonKeepUpCharacter::SetState()
 {
-	if (CurrentState != ECharacterState::Dive)
-		GetCapsuleComponent()->SetCapsuleHalfHeight(90, true);
-	else
-		GetCapsuleComponent()->SetCapsuleHalfHeight(40, false);
-	
 	if (States.Find(CurrentState))
 	{
-		if (HasAuthority()) States[CurrentState]->ExitState_Server();
+		//if (HasAuthority()) States[CurrentState]->ExitState_Server();
 
-		if (IsLocallyControlled()) States[CurrentState]->EnterState_Client();
+		//States[CurrentState]->EnterState_Client();
 	}
 
 	CurrentState = ReplicatedState;
@@ -131,9 +151,9 @@ void ABalloonKeepUpCharacter::SetState()
 		return;
 	}
 	
-	if (HasAuthority()) States[CurrentState]->EnterState_Server();
+	//if (HasAuthority()) States[CurrentState]->EnterState_Server();
 
-	if (IsLocallyControlled()) States[CurrentState]->EnterState_Client();
+	//States[CurrentState]->EnterState_Client();
 }
 
 void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
@@ -198,38 +218,25 @@ void ABalloonKeepUpCharacter::DoJumpEnd()
 	StopJumping();
 }
 
-void ABalloonKeepUpCharacter::ExecuteSpike(float ActiveTime)
+void ABalloonKeepUpCharacter::OnChargeStarted(EChargeAction Action)
 {
-	SpikeBox->ActivateVolume(ActiveTime);
+	if (CurrentState == ECharacterState::Charge) return;
+	
+	Server_RequestStartCharge(Action);
 }
 
-
-void ABalloonKeepUpCharacter::ExecuteReceive(float ActiveTime)
+void ABalloonKeepUpCharacter::Server_RequestStartCharge_Implementation(EChargeAction Action)
 {
-	NewReceiveBox->ActivateVolume(ActiveTime);
-}
-
-void ABalloonKeepUpCharacter::OnChargeStarted(ECharacterState State)
-{
-	Server_RequestStartCharge(State);
-	bIsCharging = true;
-}
-
-void ABalloonKeepUpCharacter::Server_RequestStartCharge_Implementation(ECharacterState State)
-{
-	if (!HasAuthority() || bIsCharging) return;
+	if (!HasAuthority()) return;
 	// 조건은 추후 추가
-	ReplicatedState = State;
+	ReplicatedState = ECharacterState::Charge;
+	ReplicatedChargeAction = Action;
 	SetState();
-	ChargeStartTime = GetWorld()->GetTimeSeconds();
-	ChargeRatio = 0;
 }
 
 void ABalloonKeepUpCharacter::OnChargeCompleted()
 {
-	if (!bIsCharging) return;
-
-	bIsCharging = false;
+	if (CurrentState != ECharacterState::Charge) return;
 
 	Server_CommitCharge();
 }
@@ -237,36 +244,24 @@ void ABalloonKeepUpCharacter::OnChargeCompleted()
 void ABalloonKeepUpCharacter::Server_CommitCharge_Implementation()
 {
 	if (!HasAuthority()) return;
-
-	const float Elapsed = GetWorld()->GetTimeSeconds() - ChargeStartTime;
-	ChargeRatio = FMath::Clamp(Elapsed / MaxChargeTime, 0.3f, 1.5f);
-
-	switch (ReplicatedState)
-	{
-	case ECharacterState::Receive:
-		ExecuteReceive(ChargeRatio);
-		break;
-	case ECharacterState::Spike:
-		ExecuteSpike(ChargeRatio);
-		break;
-	default:
-		break;
-	}
 	
-	ChargeRatio = 0.f;
+	UState_Charge* State = Cast<UState_Charge>(States[CurrentState]);
+	if (!State)
+	{
+		ensureMsgf(false, TEXT("Not Charge State"));
+		return;
+	}
+	//State->EnterState_Server();
 	ReplicatedState = ECharacterState::Idle;
 }
 
 void ABalloonKeepUpCharacter::OnChargeCanceled()
 {
-	bIsCharging = false;
 	Server_CancelCharge();
 }
 
 void ABalloonKeepUpCharacter::Server_CancelCharge_Implementation()
 {
-	bIsCharging = false;
-	ChargeRatio = 0.f;
 	ReplicatedState = ECharacterState::Idle;
 	SetState();
 }
@@ -309,7 +304,7 @@ void ABalloonKeepUpCharacter::ProvideFragments_Implementation(FImpulseContext& C
 	if (!HasAuthority()) return;
 	
 	UImpulseFragment_Charge* Charge = NewObject<UImpulseFragment_Charge>(this);
-	Charge->ChargeRatio = ChargeRatio;
+	//Charge->ChargeRatio = ChargeRatio;
 	TSubclassOf<UImpulseFragment> Key = Charge->GetClass();
 	
 	if (Context.ImpulseFragments.Contains(Key))

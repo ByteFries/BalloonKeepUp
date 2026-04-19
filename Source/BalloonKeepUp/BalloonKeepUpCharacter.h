@@ -8,7 +8,8 @@
 #include "Physics/Impulse/Fragment/ImpulseFragmentProvider.h"
 #include "BalloonKeepUpCharacter.generated.h"
 
-class UCharacterState;
+class UStateMachineComponent;
+class UStateBase;
 class UImpulseFragment_Charge;
 class UImpulseBoxComponent;
 class USpringArmComponent;
@@ -26,18 +27,23 @@ UENUM(Blueprintable)
 enum class ECharacterState : uint8
 {
 	Idle = 0,
-	Receive,
-	Spike,
 	Jump,
 	Dive,
 	Charge
+};
+
+UENUM(Blueprintable)
+enum class EChargeAction : uint8
+{
+	None,
+	Receive,
+	Spike
 };
 
 UCLASS(abstract)
 class ABalloonKeepUpCharacter : public ACharacter, public IImpulseFragmentProvider
 {
 	GENERATED_BODY()
-
 public:
 	ABalloonKeepUpCharacter();
 
@@ -54,10 +60,10 @@ public:
 	virtual void DoJumpEnd();
 
 	UFUNCTION(BlueprintCallable, Category="Charge")
-	void OnChargeStarted(ECharacterState State);
+	void OnChargeStarted(EChargeAction Action);
 
 	UFUNCTION(Server, Unreliable)
-	void Server_RequestStartCharge(ECharacterState State);
+	void Server_RequestStartCharge(EChargeAction Action);
 	
 	UFUNCTION(BlueprintCallable, Category="Charge")
 	void OnChargeCompleted();
@@ -89,8 +95,15 @@ public:
 
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
+	UFUNCTION(BlueprintCallable, Category="Request")
+	void RequestDiveAction();
+	
+	UFUNCTION(BlueprintCallable, Category="Request")
+	void RequestChargeAction(float ChargeRatio);
+	
 private:
 	virtual void BeginPlay() override;
+	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
@@ -106,11 +119,8 @@ private:
 
 	void Look(const FInputActionValue& Value);
 
-	UFUNCTION(BlueprintCallable, Category="Input")
-	void ExecuteSpike(float ActiveTime = 0.5f);
-	
-	UFUNCTION(BlueprintCallable, Category="Input")
-	void ExecuteReceive(float ActiveTime = 0.5f);
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="State", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStateMachineComponent> StateMachine;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
 	TObjectPtr<UImpulseBoxComponent> SpikeBox;
@@ -147,14 +157,6 @@ private:
 
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* DiveAction;
-	
-	bool bIsCharging = false;
-	
-	float ChargeStartTime = 0.f;
-
-	float MaxChargeTime = 1.f;
-
-	float ChargeRatio = 0.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
 	float DivePower = 1000.f;
@@ -163,12 +165,15 @@ private:
 	float DiveZ = 100.f;
 	
 	UPROPERTY()
-	TMap<ECharacterState, TObjectPtr<UCharacterState>> States;
+	TMap<ECharacterState, TObjectPtr<UStateBase>> States;
 
 	UPROPERTY(ReplicatedUsing=OnRep_ChangeState)
 	ECharacterState ReplicatedState;
 
 	ECharacterState CurrentState;
+
+	UPROPERTY(Replicated)
+	EChargeAction ReplicatedChargeAction;
 };
 
 
