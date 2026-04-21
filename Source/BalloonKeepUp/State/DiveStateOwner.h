@@ -23,10 +23,7 @@ class BALLOONKEEPUP_API IDiveStateOwner
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	UFUNCTION()
-	virtual void RequestDive() {}
-
-	UFUNCTION()
-	virtual void EndDive() {}
+	virtual void DoDive(FVector DiveVel) {}
 	
 	UFUNCTION()
 	virtual void CancelDive() {}

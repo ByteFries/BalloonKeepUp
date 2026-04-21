@@ -35,6 +35,50 @@ void UState_Charge::Exit()
 	ChargeRatio = 0.f;
 }
 
+void UState_Charge::HandleTriggered(const EInputAction Action)
+{
+	switch (Action)
+	{
+		case EInputAction::Jump:
+			break;
+		case EInputAction::Dive:
+			Cancel();
+			break;
+		default:
+			break;
+	}
+}
+
+void UState_Charge::HandlePressed(const EInputAction Action)
+{
+	switch (Action)
+	{
+	case EInputAction::Jump:
+		break;
+	case EInputAction::Dive:
+		Cancel();
+	default:
+		break;
+	}
+}
+
+void UState_Charge::HandleReleased(const EInputAction Action)
+{
+	switch (Action)
+	{
+	case EInputAction::Jump:
+		break;
+	case EInputAction::Receive:
+		OwnerCharacter->RequestChargeAction(Action, ChargeRatio);
+		break;
+	case EInputAction::Spike:
+		OwnerCharacter->RequestChargeAction(Action, ChargeRatio);
+		break;
+	default:
+		break;
+	}
+}
+
 void UState_Charge::Commit()
 {
 	if (!OwnerActor) return;
@@ -43,7 +87,7 @@ void UState_Charge::Commit()
 	
 	ChargeRatio = FMath::Clamp(Elapsed / MaxChargeTime, 0.3f, 1.5f);
 
-	OwnerCharacter->RequestChargeAction(ChargeRatio);
+	//OwnerCharacter->RequestChargeAction(ChargeRatio);
 }
 
 void UState_Charge::Cancel()

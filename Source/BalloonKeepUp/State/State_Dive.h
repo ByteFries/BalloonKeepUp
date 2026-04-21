@@ -19,4 +19,11 @@ public:
 	virtual void Cancel() override;
 private:
 	TObjectPtr<IDiveStateOwner> DiveOwner;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
+	float DivePower = 1000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
+	float DiveZ = 100.f;
+
 };

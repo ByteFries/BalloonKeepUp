@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Public/GameplyaInputTypes.h"
+#include "Public/GameplayInputTypes.h"
 #include "UObject/NoExportTypes.h"
 #include "StateBase.generated.h"
 
+enum class ETriggerEvent : uint8;
 class UStateMachineComponent;
 class ABalloonKeepUpCharacter;
 /**
@@ -30,13 +31,17 @@ public:
 	virtual void Tick(float DeltaTime) {}
 	virtual void Exit() {}
 
-	virtual void HandleInput(EInputAction Action, EInputEvent Event) {}
+	void HandleInput(const EInputAction Action, const ETriggerEvent Event);
 	
 	virtual void Commit() {}
 	virtual void Cancel() {}
 	
 	
 protected:
+	virtual void HandlePressed(const EInputAction Action) {}
+	virtual void HandleTriggered(const EInputAction Action) {}
+	virtual void HandleReleased(const EInputAction Action) {}
+	virtual void HandleCanceled(const EInputAction Action) {}
 	UPROPERTY()
 	TObjectPtr<UStateMachineComponent> Machine;
 

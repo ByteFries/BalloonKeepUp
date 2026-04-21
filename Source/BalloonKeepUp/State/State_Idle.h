@@ -17,4 +17,8 @@ public:
 	virtual void Enter() override;
 	virtual void Exit() override;
 	virtual void Tick(float DeltaTime) override;
+private:
+	virtual void HandlePressed(const EInputAction Action) override;
+	virtual void HandleTriggered(const EInputAction Action) override;
+	virtual void HandleReleased(const EInputAction Action) override;
 };

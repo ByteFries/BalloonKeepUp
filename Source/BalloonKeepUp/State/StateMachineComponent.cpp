@@ -9,11 +9,8 @@
 UStateMachineComponent::UStateMachineComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-
 }
 
-
-// Called when the game starts
 void UStateMachineComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -23,38 +20,45 @@ void UStateMachineComponent::BeginPlay()
 
 bool UStateMachineComponent::RequestTransition(const TSubclassOf<UStateBase>& NewStateClass, FName Reason)
 {
-	if (!CanTransition(CurrentState, NewStateClass)) return false;
+	if (!NewStateClass || !CanTransition(CurrentState, NewStateClass)) return false;
+
+	ChangeState_Internal(NewStateClass);
+	return true;
+}
+
+void UStateMachineComponent::HandleInput(const EInputAction Action, const ETriggerEvent Event)
+{
+	if (CurrentState) CurrentState->HandleInput(Action, Event);
+}
+
+
+
+void UStateMachineComponent::ChangeState_Internal(TSubclassOf<UStateBase> NextStateClass)
+{
 	if (CurrentState)
 	{
 		CurrentState->Exit();
 		CurrentState = nullptr;
 	}
-	CurrentState = NewObject<UStateBase>(this, NewStateClass);
-	if (!CurrentState) return false;
-	
+
+	CurrentState = NewObject<UStateBase>(this, NextStateClass);
+
+	if (!CurrentState) return;
+
 	CurrentState->Init(this, GetOwner());
 	CurrentState->Enter();
-	
-	return true;
-}
-
-void UStateMachineComponent::HandleInput(EInputAction Action, EInputEvent Event)
-{
-	if (CurrentState) CurrentState->HandleInput(Action, Event);
 }
 
 bool UStateMachineComponent::CanTransition(UStateBase* From, TSubclassOf<UStateBase> To)
 {
+	if (!To) return false;
+
+	//if (From && From->IsA(U))
+
+	
 	return true;
 }
 
-void UStateMachineComponent::ChangeState_Internal(TSubclassOf<UStateBase> NextStateClass)
-{
-	
-}
-
-
-// Called every frame
 void UStateMachineComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);

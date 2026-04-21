@@ -8,7 +8,6 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Controller.h"
 #include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "BalloonKeepUp.h"
 #include "State/StateBase.h"
@@ -16,9 +15,9 @@
 #include "Physics/Impulse/ImpulseBoxComponent.h"
 #include "Physics/Impulse/Fragment/ImpulseFragment_Charge.h"
 #include "State/StateMachineComponent.h"
-#include "State/State_Charge.h"
-#include "State/State_Dive.h"
 #include "State/State_Idle.h"
+#include "State/State_Receive.h"
+#include "State/State_Spike.h"
 
 ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 {
@@ -61,37 +60,35 @@ ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 	bReplicates = true;
 }
 
-
-void ABalloonKeepUpCharacter::RequestDiveAction()
+void ABalloonKeepUpCharacter::BeginPlay()
 {
-	
+	Super::BeginPlay();
 }
 
-void ABalloonKeepUpCharacter::RequestChargeAction(float ChargeRatio)
+void ABalloonKeepUpCharacter::RequestChargeAction(const EInputAction Action, const float InChargeRatio)
 {
-	if (CurrentState != ECharacterState::Charge || !HasAuthority()) return;
+	if (!HasAuthority()) return;
 	
-	switch (ReplicatedChargeAction)
+	ChargeRatio = InChargeRatio;
+
+	switch (Action)
 	{
-	case EChargeAction::Receive:
+	case EInputAction::Receive:
 		NewReceiveBox->ActivateVolume(0.5f);
+		StateMachine->RequestTransition(UState_Receive::StaticClass());
 		break;
-	case EChargeAction::Spike:
+	case EInputAction::Spike:
 		SpikeBox->ActivateVolume(0.5);
+		StateMachine->RequestTransition(UState_Spike::StaticClass());
 		break;
 	default:
 		break;
 	}
 }
 
-void ABalloonKeepUpCharacter::BeginPlay()
+void ABalloonKeepUpCharacter::RequestHandleInput_Implementation(const EInputAction Action, const ETriggerEvent TriggerEvent)
 {
-	Super::BeginPlay();
-	States.Empty();
-
-	States.Add(ECharacterState::Idle, NewObject<UState_Idle>(this));
-	States.Add(ECharacterState::Dive, NewObject<UState_Dive>(this));
-	States.Add(ECharacterState::Charge, NewObject<UState_Charge>(this));
+	StateMachine->HandleInput(Action, TriggerEvent);
 }
 
 void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -106,15 +103,15 @@ void ABalloonKeepUpCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::Look);
 		
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, EChargeAction::Spike);
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
-		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::ChargeStart, EInputAction::Spike);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::ChargeComplete, EInputAction::Spike);
+		EnhancedInputComponent->BindAction(SpikeAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::ChargeCancel, EInputAction::Spike);
 
-		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::OnChargeStarted, EChargeAction::Receive);
-		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::OnChargeCompleted);
-		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::OnChargeCanceled);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::ChargeStart, EInputAction::Receive);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Completed, this, &ABalloonKeepUpCharacter::ChargeComplete, EInputAction::Receive);
+		EnhancedInputComponent->BindAction(ReceiveAction, ETriggerEvent::Canceled, this, &ABalloonKeepUpCharacter::ChargeCancel, EInputAction::Receive);
 
-		EnhancedInputComponent->BindAction(DiveAction, ETriggerEvent::Triggered, this, &ABalloonKeepUpCharacter::OnDivePressed);
+		EnhancedInputComponent->BindAction(DiveAction, ETriggerEvent::Started, this, &ABalloonKeepUpCharacter::DiveStart);
 	}
 	else
 	{
@@ -126,43 +123,23 @@ void ABalloonKeepUpCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ABalloonKeepUpCharacter, ReplicatedState);
+	DOREPLIFETIME(ABalloonKeepUpCharacter, bIsDiving);
 }
 
-void ABalloonKeepUpCharacter::OnRep_ChangeState()
-{
-	SetState();
-}
-
-void ABalloonKeepUpCharacter::SetState()
-{
-	if (States.Find(CurrentState))
-	{
-		//if (HasAuthority()) States[CurrentState]->ExitState_Server();
-
-		//States[CurrentState]->EnterState_Client();
-	}
-
-	CurrentState = ReplicatedState;
-	
-	if (!States.Find(CurrentState))
-	{
-		ensureMsgf(false, TEXT("Can't Find State"));
-		return;
-	}
-	
-	//if (HasAuthority()) States[CurrentState]->EnterState_Server();
-
-	//States[CurrentState]->EnterState_Client();
-}
 
 void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
 
-	if (ReplicatedState == ECharacterState::Dive)
+	if (!HasAuthority()) return;
+
+	if (bIsDiving)
 	{
-		OnDiveEnd();
+		bIsDiving = false;
+		ApplyDiveCapsule(false);
+		NewDiveBox->DeactivateVolume();
+
+		StateMachine->RequestTransition(UState_Idle::StaticClass());
 	}
 }
 
@@ -208,95 +185,155 @@ void ABalloonKeepUpCharacter::DoLook(float Yaw, float Pitch)
 
 void ABalloonKeepUpCharacter::DoJumpStart()
 {
-	// signal the character to jump
 	Jump();
 }
 
 void ABalloonKeepUpCharacter::DoJumpEnd()
 {
-	// signal the character to stop jumping
 	StopJumping();
 }
 
-void ABalloonKeepUpCharacter::OnChargeStarted(EChargeAction Action)
+void ABalloonKeepUpCharacter::ChargeStart(const EInputAction Action)
 {
-	if (CurrentState == ECharacterState::Charge) return;
-	
-	Server_RequestStartCharge(Action);
+	RequestHandleInput(Action, ETriggerEvent::Started);
 }
 
-void ABalloonKeepUpCharacter::Server_RequestStartCharge_Implementation(EChargeAction Action)
+void ABalloonKeepUpCharacter::ChargeComplete(const EInputAction Action)
+{
+	RequestHandleInput(Action, ETriggerEvent::Completed);
+}
+
+void ABalloonKeepUpCharacter::ChargeCancel(const EInputAction Action)
+{
+	RequestHandleInput(Action, ETriggerEvent::Canceled);
+}
+
+void ABalloonKeepUpCharacter::DoSpike()
 {
 	if (!HasAuthority()) return;
-	// 조건은 추후 추가
-	ReplicatedState = ECharacterState::Charge;
-	ReplicatedChargeAction = Action;
-	SetState();
+	bIsSpiking = true;
+	OnSpikeMontageStart();
 }
 
-void ABalloonKeepUpCharacter::OnChargeCompleted()
-{
-	if (CurrentState != ECharacterState::Charge) return;
-
-	Server_CommitCharge();
-}
-
-void ABalloonKeepUpCharacter::Server_CommitCharge_Implementation()
+void ABalloonKeepUpCharacter::DoReceive()
 {
 	if (!HasAuthority()) return;
-	
-	UState_Charge* State = Cast<UState_Charge>(States[CurrentState]);
-	if (!State)
+	bIsReceiving = true;
+	OnReceiveMontageStart();
+}
+
+void ABalloonKeepUpCharacter::OnRep_Spiking()
+{
+	if (bIsSpiking)
 	{
-		ensureMsgf(false, TEXT("Not Charge State"));
+		OnSpikeMontageStart();
+	}
+}
+
+void ABalloonKeepUpCharacter::OnRep_Receiving()
+{
+	if (bIsReceiving)
+	{
+		OnReceiveMontageStart();
+	}
+}
+
+void ABalloonKeepUpCharacter::OnSpikeMontageStart()
+{
+	if (!SpikeMontage)
+	{
+		ensureMsgf(false, TEXT("No SpikeMontage"));
 		return;
 	}
-	//State->EnterState_Server();
-	ReplicatedState = ECharacterState::Idle;
+	
+	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
+	Anim->Montage_Play(SpikeMontage);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ABalloonKeepUpCharacter::OnSpikeMontageEnded);
+
+	Anim->Montage_SetEndDelegate(EndDelegate, SpikeMontage);
 }
 
-void ABalloonKeepUpCharacter::OnChargeCanceled()
-{
-	Server_CancelCharge();
-}
-
-void ABalloonKeepUpCharacter::Server_CancelCharge_Implementation()
-{
-	ReplicatedState = ECharacterState::Idle;
-	SetState();
-}
-
-void ABalloonKeepUpCharacter::OnDivePressed()
-{
-	Server_RequestDive();
-}
-
-void ABalloonKeepUpCharacter::Server_RequestDive_Implementation()
+void ABalloonKeepUpCharacter::OnSpikeMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	if (!HasAuthority()) return;
-	ReplicatedState = ECharacterState::Dive;
-	SetState();
-	
-	FVector Forward = GetActorForwardVector();
-	FVector DiveVel = Forward * DivePower;
-	DiveVel.Z = DiveZ;
+
+	bIsSpiking = false;
+	StateMachine->RequestTransition(UState_Idle::StaticClass());
+}
+
+void ABalloonKeepUpCharacter::OnReceiveMontageStart()
+{
+	if (!ReceiveMontage)
+	{
+		ensureMsgf(false, TEXT("No ReceiveMontage"));
+		return;
+	}
+
+	UAnimInstance* Anim = GetMesh()->GetAnimInstance();
+	Anim->Montage_Play(ReceiveMontage);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ABalloonKeepUpCharacter::OnReceiveMontageEnded);
+
+	Anim->Montage_SetEndDelegate(EndDelegate, ReceiveMontage);
+}
+
+void ABalloonKeepUpCharacter::OnReceiveMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (!HasAuthority()) return;
+
+	bIsReceiving = false;
+	StateMachine->RequestTransition(UState_Idle::StaticClass());
+}
+
+void ABalloonKeepUpCharacter::DiveStart()
+{
+	RequestHandleInput(EInputAction::Dive, ETriggerEvent::Started);
+}
+
+void ABalloonKeepUpCharacter::DoDive(FVector DiveVel)
+{
+	if (!HasAuthority()) return;
+	if (bIsDiving) return;
+
+	bIsDiving = true;
+	ApplyDiveCapsule(true);
 	
 	LaunchCharacter(DiveVel, true, true);
 	NewDiveBox->ActivateVolume(20);
 }
 
-void ABalloonKeepUpCharacter::OnDiveEnd()
-{
-	Server_EndDive();
-}
-
-void ABalloonKeepUpCharacter::Server_EndDive_Implementation()
+void ABalloonKeepUpCharacter::CancelDive()
 {
 	if (!HasAuthority()) return;
 
-	ReplicatedState = ECharacterState::Idle;
-	SetState();
+	bIsDiving = false;
+	ApplyDiveCapsule(false);
+	
 	NewDiveBox->DeactivateVolume();
+	StateMachine->RequestTransition(UState_Idle::StaticClass());
+}
+
+void ABalloonKeepUpCharacter::OnRep_Diving()
+{
+	ApplyDiveCapsule(bIsDiving);
+	
+	if (bIsDiving) NewDiveBox->ActivateVolume(20);
+	else NewDiveBox->DeactivateVolume();
+}
+
+void ABalloonKeepUpCharacter::ApplyDiveCapsule(bool IsDiving)
+{
+	if (IsDiving)
+	{
+		GetCapsuleComponent()->SetCapsuleHalfHeight(40.f, true);
+	}
+	else
+	{
+		GetCapsuleComponent()->SetCapsuleHalfHeight(90.f, true);
+	}
 }
 
 void ABalloonKeepUpCharacter::ProvideFragments_Implementation(FImpulseContext& Context)
@@ -304,7 +341,7 @@ void ABalloonKeepUpCharacter::ProvideFragments_Implementation(FImpulseContext& C
 	if (!HasAuthority()) return;
 	
 	UImpulseFragment_Charge* Charge = NewObject<UImpulseFragment_Charge>(this);
-	//Charge->ChargeRatio = ChargeRatio;
+	Charge->ChargeRatio = ChargeRatio;
 	TSubclassOf<UImpulseFragment> Key = Charge->GetClass();
 	
 	if (Context.ImpulseFragments.Contains(Key))

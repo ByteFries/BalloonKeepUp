@@ -5,6 +5,8 @@
 
 #include "BalloonKeepUpCharacter.h"
 #include "DiveStateOwner.h"
+#include "StateMachineComponent.h"
+#include "State_Idle.h"
 #include "Components/CapsuleComponent.h"
 #include "Physics/Impulse/ImpulseBoxComponent.h"
 
@@ -28,18 +30,26 @@ bool UState_Dive::Init(UStateMachineComponent* InMachine, AActor* InOwner)
 
 void UState_Dive::Enter()
 {
-	if (!DiveOwner) return;
+	FVector Dir = OwnerActor->GetVelocity();
+	Dir.Z = 0.f;
 
-	DiveOwner->RequestDive();
+	if (!Dir.IsNearlyZero())
+	{
+		Dir.Normalize();
+	}
+	else
+	{
+		Dir = OwnerActor->GetActorForwardVector();
+	}
+
+	FVector DiveVel = Dir * DivePower;
+	DiveVel.Z = DiveZ;
+	
+	DiveOwner->DoDive(DiveVel);
 }
 
 void UState_Dive::Exit()
 {
-	if (!DiveOwner) return;
-
-	DiveOwner->EndDive();
-	//OwnerCharacter->GetDiveBox()->Deactivate();
-	//OwnerCharacter->GetCapsuleComponent()->SetCapsuleHalfHeight(90, true);	
 }
 
 void UState_Dive::Cancel()
@@ -48,4 +58,3 @@ void UState_Dive::Cancel()
 
 	DiveOwner->CancelDive();
 }
-

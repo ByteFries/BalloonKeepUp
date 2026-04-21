@@ -8,6 +8,7 @@
 
 
 enum class EInputAction : uint8;
+enum class ETriggerEvent : uint8;
 class UStateBase;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -24,8 +25,8 @@ public:
 	virtual void BeginPlay() override;
 
 	bool RequestTransition(const TSubclassOf<UStateBase>& NewStateClass, FName Reason = NAME_None);
-
-	void HandleInput(EInputAction Action, EInputEvent Event);
+	
+	void HandleInput(const EInputAction Action, const ETriggerEvent Event);
 
 	UStateBase* GetCurrentState() const {return CurrentState;}
 

@@ -3,11 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EnhancedPlayerInput.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
 #include "Physics/Impulse/Fragment/ImpulseFragmentProvider.h"
+#include "State/DiveStateOwner.h"
 #include "BalloonKeepUpCharacter.generated.h"
 
+class UState_Receive;
+enum class EInputAction : uint8;
 class UStateMachineComponent;
 class UStateBase;
 class UImpulseFragment_Charge;
@@ -32,16 +36,8 @@ enum class ECharacterState : uint8
 	Charge
 };
 
-UENUM(Blueprintable)
-enum class EChargeAction : uint8
-{
-	None,
-	Receive,
-	Spike
-};
-
 UCLASS(abstract)
-class ABalloonKeepUpCharacter : public ACharacter, public IImpulseFragmentProvider
+class ABalloonKeepUpCharacter : public ACharacter, public IImpulseFragmentProvider, public IDiveStateOwner
 {
 	GENERATED_BODY()
 public:
@@ -60,48 +56,38 @@ public:
 	virtual void DoJumpEnd();
 
 	UFUNCTION(BlueprintCallable, Category="Charge")
-	void OnChargeStarted(EChargeAction Action);
-
-	UFUNCTION(Server, Unreliable)
-	void Server_RequestStartCharge(EChargeAction Action);
+	void ChargeStart(const EInputAction Action);
 	
 	UFUNCTION(BlueprintCallable, Category="Charge")
-	void OnChargeCompleted();
-
-	UFUNCTION(Server, Unreliable)
-	void Server_CommitCharge();
+	void ChargeComplete(const EInputAction Action);
 
 	UFUNCTION(BlueprintCallable, Category="Charge")
-	void OnChargeCanceled();
+	void ChargeCancel(const EInputAction Action);
 
-	UFUNCTION(Server, Unreliable)
-	void Server_CancelCharge();
+	void DoSpike();
+
+	void DoReceive();
 	
 	UFUNCTION(BlueprintCallable)
-	void OnDivePressed();
+	void DiveStart();
 
-	UFUNCTION(Server, Unreliable)
-	void Server_RequestDive();
-
-	UFUNCTION(BlueprintCallable)
-	void OnDiveEnd();
-
-	UFUNCTION(Server, Unreliable)
-	void Server_EndDive();
+	virtual void DoDive(FVector DiveVel) override;
+	
+	virtual void CancelDive() override;
 	
 	virtual void ProvideFragments_Implementation(FImpulseContext& Context) override;
 
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
-
-	UFUNCTION(BlueprintCallable, Category="Request")
-	void RequestDiveAction();
 	
 	UFUNCTION(BlueprintCallable, Category="Request")
-	void RequestChargeAction(float ChargeRatio);
+	void RequestChargeAction(const EInputAction Action, const float ChargeRatio);
 	
 private:
+	UFUNCTION(Server, Unreliable)
+	void RequestHandleInput(const EInputAction Action, const ETriggerEvent TriggerEvent);
+	
 	virtual void BeginPlay() override;
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -109,10 +95,22 @@ private:
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION()
-	void OnRep_ChangeState();
+	void OnRep_Diving();
+	
+	UFUNCTION()
+	void OnRep_Spiking();
+	
+	UFUNCTION()
+	void OnRep_Receiving();
 
-	void SetState();
+	void OnSpikeMontageStart();
+	void OnSpikeMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
+	void OnReceiveMontageStart();
+	void OnReceiveMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	void ApplyDiveCapsule(bool IsDiving);
+	
 	virtual void Landed(const FHitResult& Hit) override;
 
 	void Move(const FInputActionValue& Value);
@@ -121,7 +119,7 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="State", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStateMachineComponent> StateMachine;
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Impulse", meta=(AllowPrivateAccess="true"))
 	TObjectPtr<UImpulseBoxComponent> SpikeBox;
 
@@ -157,23 +155,23 @@ private:
 
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* DiveAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
-	float DivePower = 1000.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Dive", meta = (AllowPrivateAccess = "true"))
-	float DiveZ = 100.f;
 	
-	UPROPERTY()
-	TMap<ECharacterState, TObjectPtr<UStateBase>> States;
+	UPROPERTY(ReplicatedUsing=OnRep_Diving)
+	bool bIsDiving = false;
+	
+	UPROPERTY(ReplicatedUsing=OnRep_Spiking)
+	bool bIsSpiking = false;
 
-	UPROPERTY(ReplicatedUsing=OnRep_ChangeState)
-	ECharacterState ReplicatedState;
-
-	ECharacterState CurrentState;
-
-	UPROPERTY(Replicated)
-	EChargeAction ReplicatedChargeAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Anim", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> SpikeMontage;
+	
+	UPROPERTY(ReplicatedUsing=OnRep_Receiving)
+	bool bIsReceiving = false;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Anim", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> ReceiveMontage;
+	
+	float ChargeRatio;
 };
 
 

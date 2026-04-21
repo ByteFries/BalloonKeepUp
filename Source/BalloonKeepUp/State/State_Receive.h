@@ -4,36 +4,25 @@
 
 #include "CoreMinimal.h"
 #include "State/StateBase.h"
-#include "State_Charge.generated.h"
+#include "State_Receive.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class BALLOONKEEPUP_API UState_Charge : public UStateBase
+class BALLOONKEEPUP_API UState_Receive : public UStateBase
 {
 	GENERATED_BODY()
 public:
 	virtual bool Init(UStateMachineComponent* InMachine, AActor* InOwner) override;
-
 	virtual void Enter() override;
-	
 	virtual void Exit() override;
 
 private:
-	virtual void HandleTriggered(const EInputAction Action) override;
-	
 	virtual void HandlePressed(const EInputAction Action) override;
 	
 	virtual void HandleReleased(const EInputAction Action) override;
 	
-	virtual void Commit() override;
-	
-	virtual void Cancel() override;
-	
+	UPROPERTY()
 	TObjectPtr<ABalloonKeepUpCharacter> OwnerCharacter;
-	
-	float ChargeRatio = 0.f;
-	float MaxChargeTime = 1.f;
-	float ChargeStartTime = 0.f;
 };

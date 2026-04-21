@@ -3,11 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayInputTypes.generated.h"
 
-UENUM(Blueprintable)
+UENUM(BlueprintType)
 enum class EInputAction : uint8
 {
-	None,
+	None = 0,
 	Jump,
 	Dive,
 	Receive,
