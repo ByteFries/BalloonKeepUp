@@ -18,6 +18,14 @@ enum class EImpulseDirectionSpace : uint8
 	VolumeLocal
 };
 
+UENUM(BlueprintType)
+enum class EImpulseBoxType : uint8
+{
+	Dive,
+	Spike,
+	Receive
+};
+
 USTRUCT(BlueprintType)
 struct FImpulseVolumeCommonData
 {

@@ -74,14 +74,48 @@ void ABalloonKeepUpCharacter::RequestChargeAction(const EInputAction Action, con
 	switch (Action)
 	{
 	case EInputAction::Receive:
-		NewReceiveBox->ActivateVolume(0.5f);
 		StateMachine->RequestTransition(UState_Receive::StaticClass());
 		break;
 	case EInputAction::Spike:
-		SpikeBox->ActivateVolume(0.5);
 		StateMachine->RequestTransition(UState_Spike::StaticClass());
 		break;
 	default:
+		break;
+	}
+}
+
+
+
+void ABalloonKeepUpCharacter::EnableImpulseBox(const EImpulseBoxType Type, const float ActiveTime)
+{
+	if (!HasAuthority()) return;
+
+	switch (Type)
+	{
+	case EImpulseBoxType::Dive:
+		break;
+	case EImpulseBoxType::Spike:
+		SpikeBox->ActivateVolume(ActiveTime);
+		break;
+	case EImpulseBoxType::Receive:
+		NewReceiveBox->ActivateVolume(ActiveTime);
+		break;
+	}
+}
+
+void ABalloonKeepUpCharacter::DeactivateImpulseBox(const EImpulseBoxType Type)
+{
+	if (!HasAuthority()) return;
+
+	switch (Type)
+	{
+	case EImpulseBoxType::Dive:
+		break;
+	case EImpulseBoxType::Spike:
+		SpikeBox->DeactivateVolume();
+		break;
+	case EImpulseBoxType::Receive:
+		NewReceiveBox->DeactivateVolume();
 		break;
 	}
 }

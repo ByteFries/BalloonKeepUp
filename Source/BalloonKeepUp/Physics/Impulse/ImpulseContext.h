@@ -29,7 +29,7 @@ struct FImpulseContext
 	
 	UPROPERTY(EditAnywhere, Category = "Impulse")
 	FVector BaseDirection = FVector::ZeroVector; 
-	// 
+	
 	UPROPERTY(EditAnywhere, Category = "Impulse")
 	FVector DirectionBias = FVector::ZeroVector;
 	// 특정 축에 가중치 넣어서 조절할 때
@@ -50,7 +50,9 @@ struct FImpulseContext
 		
 		if (const TObjectPtr<UImpulseFragment>* Found = ImpulseFragments.Find(T::StaticClass()))
 		{
-			return Cast<T>(Found->Get());
+			UImpulseFragment* Frag = Found->Get();
+			if (!IsValid(Frag)) return nullptr;
+			return Cast<T>(Frag);
 		}
 
 		return nullptr;

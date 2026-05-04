@@ -27,7 +27,7 @@ private:
 	
 	virtual void HandleReleased(const EInputAction Action) override;
 	
-	virtual void Commit() override;
+	void Commit(const EInputAction Action);
 	
 	virtual void Cancel() override;
 	

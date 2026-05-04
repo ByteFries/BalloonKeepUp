@@ -10,6 +10,7 @@
 #include "State/DiveStateOwner.h"
 #include "BalloonKeepUpCharacter.generated.h"
 
+enum class EImpulseBoxType : uint8;
 class UState_Receive;
 enum class EInputAction : uint8;
 class UStateMachineComponent;
@@ -83,7 +84,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable, Category="Request")
 	void RequestChargeAction(const EInputAction Action, const float ChargeRatio);
-	
+
+	void EnableImpulseBox(const EImpulseBoxType Type, const float ActiveTime = 0.5f);
+	void DeactivateImpulseBox(const EImpulseBoxType Type);
 private:
 	UFUNCTION(Server, Unreliable)
 	void RequestHandleInput(const EInputAction Action, const ETriggerEvent TriggerEvent);

@@ -14,6 +14,7 @@ void UImpulseVolumeFunctionLibrary::Activate(UPrimitiveComponent* Comp, FImpulse
 	Data.bIsActive = true;
 	Comp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Comp->SetGenerateOverlapEvents(true);
+	Comp->UpdateOverlaps();
 }
 
 void UImpulseVolumeFunctionLibrary::Deactivate(UPrimitiveComponent* Comp, FImpulseVolumeCommonData& Data)

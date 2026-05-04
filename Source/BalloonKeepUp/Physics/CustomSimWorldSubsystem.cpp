@@ -2,54 +2,50 @@
 
 
 #include "Physics/CustomSimWorldSubsystem.h"
-
 #include "CustomSimulate.h"
+#include "Time/TimeManagerSubsystem.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogCustomSim, Log, All);
 
 void UCustomSimWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+
+	if (GetWorld()->GetNetMode() == NM_Client)
+	{
+		return;
+	}
+
+	Collection.InitializeDependency(UTimeManagerSubsystem::StaticClass());
+	
 	bIsActive = true;
-	if (PhysicsTickInterval <= 0.f) PhysicsTickInterval = 1.f / 60.f;
+	
+	UTimeManagerSubsystem* TimeManager = GetWorld()->GetSubsystem<UTimeManagerSubsystem>();
+
+	if (!TimeManager)
+	{
+		ensureMsgf(false, TEXT("NoTimeManager"));
+		return;
+	}
+
+	if (!TimeManager->Register(this))
+	{
+		UE_LOG(LogCustomSim, Warning, TEXT("Register failed: %s"), *GetName());
+	}
 }
 
 void UCustomSimWorldSubsystem::Deinitialize()
 {
 	Super::Deinitialize();
-}
 
-void UCustomSimWorldSubsystem::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
+	UTimeManagerSubsystem* TimeManager = GetWorld()->GetSubsystem<UTimeManagerSubsystem>();
 
-	if (!bIsActive || GetWorld()->GetNetMode() == NM_Client) return;
-
-	RemainingTime += DeltaTime;
-
-	const float FixedDt = PhysicsTickInterval;
-	const int32 MaxStepPerFrame = 6;
-
-	int32 Steps = 0;
-
-	while (RemainingTime >= FixedDt && Steps < MaxStepPerFrame)
+	if (!TimeManager)
 	{
-		
-		for (TWeakObjectPtr<UObject> WeakObj : Objects)
-		{
-			if (UObject* Obj = WeakObj.Get())
-			{
-				if (Obj->GetClass()->ImplementsInterface(UCustomSimulate::StaticClass()))
-					ICustomSimulate::Execute_SimulatePhysics(Obj, FixedDt);
-			}
-		}
-
-		RemainingTime -= FixedDt;
-		++Steps;
+		return;
 	}
-}
 
-TStatId UCustomSimWorldSubsystem::GetStatId() const
-{
-	RETURN_QUICK_DECLARE_CYCLE_STAT(UCustomSimWorldSubsystem, STATGROUP_Tickables);
+	TimeManager->Unregister(this);
 }
 
 bool UCustomSimWorldSubsystem::Register(UObject* Object)
@@ -69,5 +65,24 @@ bool UCustomSimWorldSubsystem::Register(UObject* Object)
 void UCustomSimWorldSubsystem::Unregister(UObject* Object)
 {
 	if ((GetWorld()->GetNetMode() == NM_Client) || !Objects.Contains(Object)) return;
+
 	Objects.Remove(Object);
+}
+
+void UCustomSimWorldSubsystem::OnFixedStep_Implementation(float FixedDeltaTime)
+{
+	if (!bIsActive) return;
+	
+	Objects.RemoveAll([](const TWeakObjectPtr<UObject>& Ptr)
+	{
+		return !Ptr.IsValid();
+	});
+	
+	for (const TWeakObjectPtr<UObject>& WeakObj : Objects)
+	{
+		if (UObject* Obj = WeakObj.Get())
+		{
+			ICustomSimulate::Execute_SimulatePhysics(Obj, FixedDeltaTime);
+		}
+	}
 }

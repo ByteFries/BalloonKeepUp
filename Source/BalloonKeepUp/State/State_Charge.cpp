@@ -23,7 +23,7 @@ bool UState_Charge::Init(UStateMachineComponent* InMachine, AActor* InOwner)
 
 void UState_Charge::Enter()
 {
-	if (!OwnerActor) return;
+	if (!OwnerCharacter) return;
 	ChargeStartTime = GetWorld()->GetTimeSeconds();
 	ChargeRatio = 0;
 }
@@ -55,8 +55,6 @@ void UState_Charge::HandlePressed(const EInputAction Action)
 	{
 	case EInputAction::Jump:
 		break;
-	case EInputAction::Dive:
-		Cancel();
 	default:
 		break;
 	}
@@ -69,29 +67,31 @@ void UState_Charge::HandleReleased(const EInputAction Action)
 	case EInputAction::Jump:
 		break;
 	case EInputAction::Receive:
-		OwnerCharacter->RequestChargeAction(Action, ChargeRatio);
-		break;
 	case EInputAction::Spike:
-		OwnerCharacter->RequestChargeAction(Action, ChargeRatio);
+		Commit(Action);
 		break;
 	default:
 		break;
 	}
 }
 
-void UState_Charge::Commit()
+void UState_Charge::Commit(const EInputAction Action)
 {
-	if (!OwnerActor) return;
+	if (!OwnerCharacter) return;
 
-	const float Elapsed = GetWorld()->GetTimeSeconds() - ChargeStartTime;
+	UWorld* World = OwnerCharacter->GetWorld();
+
+	if (!World) return;
+	
+	const float Elapsed = World->GetTimeSeconds() - ChargeStartTime;
 	
 	ChargeRatio = FMath::Clamp(Elapsed / MaxChargeTime, 0.3f, 1.5f);
 
-	//OwnerCharacter->RequestChargeAction(ChargeRatio);
+	OwnerCharacter->RequestChargeAction(Action, ChargeRatio);
 }
 
 void UState_Charge::Cancel()
 {
-	if (!OwnerActor) return;
-	//OwnerCharacter->Requst
+	if (!OwnerCharacter) return;
+	
 }

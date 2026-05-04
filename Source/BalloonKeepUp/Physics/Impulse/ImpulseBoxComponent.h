@@ -56,5 +56,6 @@ protected:
 
 	FTimerHandle ActiveTimerHandle;
 
+	UPROPERTY()
 	FImpulseContext Context;
 };

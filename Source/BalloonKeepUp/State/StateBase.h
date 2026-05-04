@@ -33,7 +33,7 @@ public:
 
 	void HandleInput(const EInputAction Action, const ETriggerEvent Event);
 	
-	virtual void Commit() {}
+	//virtual void Commit() {}
 	virtual void Cancel() {}
 	
 	
