@@ -140,7 +140,15 @@ void ABalloon::ReceiveImpulseRequest_Implementation(const FImpulseRequest& Reque
 	
 	//UE_LOG(LogTemp, Log, TEXT("  AppliedImpulse: %s"), *AppliedImpulse.ToString());
 	//UE_LOG(LogTemp, Log, TEXT("  PendingImpulse (Before): %s"), *PendingImpulse.ToString());
-	PendingImpulse += Request.Power * Request.Direction;
+	PendingImpulse += AppliedImpulse;
+}
+
+void ABalloon::SetFreeze(bool bFreeze)
+{
+	if (!HasAuthority()) return;
+
+	bFrozen = bFreeze;
+	OnRep_Frozen();
 }
 
 void ABalloon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -148,13 +156,18 @@ void ABalloon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ABalloon, ReplicatedLocation);
+	DOREPLIFETIME(ABalloon, bFrozen);
 }
 
 void ABalloon::OnRep_ServerLocation()
 {
 	if (HasAuthority()) return;
-	//SetActorLocation(ReplicatedLocation, false);
 	TargetLocation = ReplicatedLocation;
+}
+
+void ABalloon::OnRep_Frozen()
+{
+	IsActive = !bFrozen;
 }
 
 void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
@@ -181,11 +194,13 @@ void ABalloon::MoveWithSweepAndBounce(float DeltaTime)
 
 		if (!Hit.bBlockingHit) break;
 
+		/*
 		UE_LOG(LogTemp, Warning, TEXT("[Balloon] BlockingHit: Actor=%s Comp=%s Normal=%s Time=%.3f"),
 	*GetNameSafe(Hit.GetActor()),
 	*GetNameSafe(Hit.GetComponent()),
 	*Hit.ImpactNormal.ToString(),
 	Hit.Time);
+		*/
 		
 		RemainingTime *= (1.f - Hit.Time);
 		

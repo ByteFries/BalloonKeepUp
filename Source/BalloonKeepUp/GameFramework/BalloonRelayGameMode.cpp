@@ -4,11 +4,30 @@
 #include "GameFramework/BalloonRelayGameMode.h"
 
 #include "BalloonRelayGameState.h"
+#include "Time/TimeManagerSubsystem.h"
+
+DEFINE_LOG_CATEGORY(LogRelayGameMode);
 
 void ABalloonRelayGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (UTimeManagerSubsystem* TimeManager = Cast<UTimeManagerSubsystem>(GetWorld()->GetSubsystem<UTimeManagerSubsystem>()))
+	{
+		TimeManager->Register(this);
+	}
+	
 	Init();
+}
+
+void ABalloonRelayGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	if (UTimeManagerSubsystem* TimeManager = Cast<UTimeManagerSubsystem>(GetWorld()->GetSubsystem<UTimeManagerSubsystem>()))
+	{
+		TimeManager->Unregister(this);
+	}
 }
 
 void ABalloonRelayGameMode::NotifyBalloonHit(APlayerState* PlayerState)
@@ -26,10 +45,25 @@ void ABalloonRelayGameMode::NotifyBalloonHit(APlayerState* PlayerState)
 	IncreaseRelayCount();
 }
 
+void ABalloonRelayGameMode::OnFixedStep_Implementation(float FixedDeltaTime)
+{
+	switch (GamePhase)
+	{
+	case ERelayGamePhase::Countdown:
+		TickCountdownPhase(FixedDeltaTime);
+		break;
+	default:
+		break;
+	}
+}
+
 void ABalloonRelayGameMode::ChangePhase(ERelayGamePhase NewPhase)
 {
 	if (NewPhase == GamePhase) return;
+	UE_LOG(LogRelayGameMode, Warning, TEXT("[GameMode] Phase Exit: %s"), *PhaseToString(GamePhase));
 	GamePhase = NewPhase;
+	UE_LOG(LogRelayGameMode, Warning, TEXT("[GameMode] Phase Enter: %s"), *PhaseToString(GamePhase));
+
 	
 	switch (GamePhase)
 	{
@@ -53,11 +87,14 @@ void ABalloonRelayGameMode::ChangePhase(ERelayGamePhase NewPhase)
 
 void ABalloonRelayGameMode::Init()
 {
-	
+	ChangePhase(ERelayGamePhase::Waiting);
 }
 
 void ABalloonRelayGameMode::EnterWaitingPhase()
 {
+	ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>();
+	if (GS) GS->SetPlayEnabled(false);
+	
 	GetWorldTimerManager().SetTimer(WaitingCheckHandle, this, &ABalloonRelayGameMode::TryStartGame, 0.2f, true);
 }
 
@@ -78,14 +115,14 @@ bool ABalloonRelayGameMode::ArePlayersReady() const
 
 	return ReadyCount >= 2;
 }
-/*
+
 void ABalloonRelayGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
-
+	
 	TryStartGame();
 }
-*/
+
 
 void ABalloonRelayGameMode::TryStartGame()
 {
@@ -97,59 +134,66 @@ void ABalloonRelayGameMode::TryStartGame()
 
 void ABalloonRelayGameMode::EnterCountdownPhase()
 {
+	GetWorldTimerManager().ClearTimer(WaitingCheckHandle);
+	
 	// 게임 시작 카운트 다운
-	CountdownRemaining = 3;
-	BroadcastCountdown();
-	GetWorldTimerManager().SetTimer(CountdownHandle, this, &ABalloonRelayGameMode::TickCountdown, 1.f, true);
+	ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>();
+	if (GS) GS->SetPlayEnabled(false);
+	CountdownTimeRemaining = 3.f;
+	LastBroadcastSecond = -1;
+
+	TickCountdownPhase(0.f);
 }
 
-void ABalloonRelayGameMode::TickCountdown()
+void ABalloonRelayGameMode::TickCountdownPhase(float DeltaSecond)
 {
-	CountdownRemaining--;
+	CountdownTimeRemaining -= DeltaSecond;
+	CountdownTimeRemaining = FMath::Max(0.f, CountdownTimeRemaining);
 
-	BroadcastCountdown();
+	int CurrentSecond = FMath::CeilToInt(CountdownTimeRemaining);
+
+	if (CurrentSecond != LastBroadcastSecond)
+	{
+		LastBroadcastSecond = CurrentSecond;
+		ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>();
+		if (GS)
+		{
+			GS->SetCountdownValue(CurrentSecond);
+
+			if (CurrentSecond == 2)
+			{
+				//SpawnBalloon
+			}
+		}
+	}
 	
-	if (CountdownRemaining <= 0)
+	if (CurrentSecond == 0)
 	{
 		FinishCountdown();
-		return;
 	}
+	
 }
 
 void ABalloonRelayGameMode::FinishCountdown()
 {
-	// 카운트 다운 끝나고 호출할 함수?
-	GetWorldTimerManager().ClearTimer(CountdownHandle);
 	ChangePhase(ERelayGamePhase::Playing);
-}
-
-void ABalloonRelayGameMode::BroadcastCountdown()
-{
-	ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>();
-
-	if (!GS) return;
-
-	GS->SetCountdownValue(CountdownRemaining);
 }
 
 void ABalloonRelayGameMode::EnterPlayingPhase()
 {
-	// 커스텀 시뮬 활성화, 플레이어 움직이기 가능 -> 인게임 시간이 움직이기 시작
-	
+	ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>();
+	if (GS) GS->SetPlayEnabled(true);
 }
 
 void ABalloonRelayGameMode::EnterResultPhase()
 {
-	// 
+	// 결과 ui 창 보여주기
 }
 
 void ABalloonRelayGameMode::EnterGameOverPhase()
 {
 	// SendResultToInstance 호출?
 }
-
-
-
 
 void ABalloonRelayGameMode::SendResultToInstance()
 {
@@ -159,6 +203,13 @@ void ABalloonRelayGameMode::SendResultToInstance()
 void ABalloonRelayGameMode::IncreaseRelayCount()
 {
 	// 릴레이 카운트 증가 후 브로드캐스트
+}
+
+FString ABalloonRelayGameMode::PhaseToString(ERelayGamePhase Phase)
+{
+	const UEnum* EnumPtr = StaticEnum<ERelayGamePhase>();
+	if (!EnumPtr) return TEXT("InvalidPhase");
+	return EnumPtr->GetNameStringByValue((int64)Phase);
 }
 
 

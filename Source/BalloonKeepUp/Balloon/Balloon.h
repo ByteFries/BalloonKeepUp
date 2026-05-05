@@ -31,11 +31,16 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	
 	virtual void ReceiveImpulseRequest_Implementation(const FImpulseRequest& Request) override;
+
+	void SetFreeze(bool bFreeze);
 private:
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	UFUNCTION()
 	void OnRep_ServerLocation();
+
+	UFUNCTION()
+	void OnRep_Frozen();
 	
 	void MoveWithSweepAndBounce(float DeltaTime);
 
@@ -70,7 +75,10 @@ private:
 
 	// 연속 노이즈 추가?
 	
-	bool IsActive = true;
+	bool IsActive = false;
+
+	UPROPERTY(ReplicatedUsing=OnRep_Frozen)
+	bool bFrozen = true;
 
 	UPROPERTY(EditDefaultsOnly, Category="Baloon|Phsysics")
 	float MaxImpulseSpeed = 2400.f;
