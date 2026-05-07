@@ -7,6 +7,7 @@
 #include "Time/TimeStepSubscriber.h"
 #include "BalloonRelayGameMode.generated.h"
 
+class ABalloon;
 DECLARE_LOG_CATEGORY_EXTERN(LogRelayGameMode, Log, All);
 /**
  * 
@@ -31,7 +32,7 @@ public:
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
-	void NotifyBalloonHit(APlayerState* PlayerState);
+	void HandleBalloonOverlap(ABalloon* Balloon, AActor* Actor);
 	
 	virtual void OnFixedStep_Implementation(float FixedDeltaTime) override;
 private:	
@@ -45,6 +46,7 @@ private:
 	
 	void EnterCountdownPhase();
 	void TickCountdownPhase(float DeltaTime);
+	void SpawnBalloon();
 	void FinishCountdown();
 	
 	void EnterPlayingPhase();
@@ -57,6 +59,8 @@ private:
 
 	void IncreaseRelayCount();
 
+	void PopBalloon();
+
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	static FString PhaseToString(ERelayGamePhase Phase);
@@ -68,8 +72,11 @@ private:
 	
 	ERelayGamePhase GamePhase = ERelayGamePhase::None;
 
-	TObjectPtr<APlayerState> LastHitPlayer;
 	int RelayCount = 0;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ABalloon> BalloonClass;
 	
+	TObjectPtr<APlayerState> LastHitPlayerState;
 };
 

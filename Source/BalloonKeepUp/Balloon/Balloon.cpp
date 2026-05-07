@@ -3,7 +3,9 @@
 
 #include "Balloon/Balloon.h"
 
+#include "PopTriggerComponent.h"
 #include "Components/SphereComponent.h"
+#include "GameFramework/BalloonRelayGameMode.h"
 #include "Net/UnrealNetwork.h"
 #include "Physics/CustomSimWorldSubsystem.h"
 #include "Physics/Impulse/ImpulseTypes.h"
@@ -34,6 +36,8 @@ void ABalloon::BeginPlay()
 	{
 		Sim->Register(this);
 	}
+
+	OnActorBeginOverlap.AddDynamic(this, &ABalloon::HandleBeginOverlap);
 }
 
 void ABalloon::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -49,7 +53,7 @@ void ABalloon::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void ABalloon::SimulatePhysics_Implementation(float DeltaTime)
 {
 	if (!HasAuthority() || !IsActive) return;
-	const bool bShouldLog = !PendingImpulse.IsNearlyZero();
+	const bool bShouldLog = false;//!PendingImpulse.IsNearlyZero();
 	
 	if (bShouldLog)
 	{
@@ -149,6 +153,22 @@ void ABalloon::SetFreeze(bool bFreeze)
 
 	bFrozen = bFreeze;
 	OnRep_Frozen();
+}
+
+void ABalloon::PopBalloon()
+{
+	// fx 호출 및 destroy
+	Destroy();
+}
+
+void ABalloon::HandleBeginOverlap(AActor* OverlappedActor, AActor* OtherActor)
+{
+	if (!HasAuthority()) return;
+
+	if (ABalloonRelayGameMode* GM = GetWorld()->GetAuthGameMode<ABalloonRelayGameMode>())
+	{
+		GM->HandleBalloonOverlap(this, OtherActor);
+	}
 }
 
 void ABalloon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

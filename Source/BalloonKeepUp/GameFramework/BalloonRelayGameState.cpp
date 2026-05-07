@@ -11,6 +11,12 @@ void ABalloonRelayGameState::AddRelayCount(int Value)
 	if (!HasAuthority()) return;
 	
 	RelayCount += Value;
+
+	UE_LOG(LogTemp, Log, TEXT("[%s][Relay] RelayCount Changed: %d (Added: %d)"),
+	HasAuthority() ? TEXT("Server") : TEXT("Client"),
+	RelayCount,
+	Value
+	);
 	OnRelayCountChanged.Broadcast(RelayCount);
 }
 
@@ -30,6 +36,14 @@ void ABalloonRelayGameState::SetPlayEnabled(bool NewValue)
 	bPlayEnabled = NewValue;
 	
 	ApplyGameplayFreeze(!bPlayEnabled);
+}
+
+void ABalloonRelayGameState::SetBalloon(ABalloon* InBalloon)
+{
+	if (InBalloon)
+	{
+		Balloon = InBalloon;
+	}
 }
 
 void ABalloonRelayGameState::OnRep_Countdown()

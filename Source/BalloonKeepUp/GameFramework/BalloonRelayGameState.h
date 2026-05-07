@@ -22,6 +22,10 @@ public:
 	void SetCountdownValue(int NewValue);
 
 	void SetPlayEnabled(bool NewValue);
+
+	void SetBalloon(ABalloon* InBalloon);
+
+	ABalloon* GetBalloon() {return Balloon;}
 	
 	UPROPERTY()
 	FOnCountdownChanged OnCountdownChanged;

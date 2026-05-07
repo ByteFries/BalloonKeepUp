@@ -3,7 +3,12 @@
 
 #include "GameFramework/BalloonRelayGameMode.h"
 
+#include "BalloonKeepUpCharacter.h"
 #include "BalloonRelayGameState.h"
+#include "Balloon/Balloon.h"
+#include "Balloon/BalloonSpawnPoint.h"
+#include "Balloon/PopTriggerComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Time/TimeManagerSubsystem.h"
 
 DEFINE_LOG_CATEGORY(LogRelayGameMode);
@@ -30,19 +35,33 @@ void ABalloonRelayGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 }
 
-void ABalloonRelayGameMode::NotifyBalloonHit(APlayerState* PlayerState)
+void ABalloonRelayGameMode::HandleBalloonOverlap(ABalloon* Balloon, AActor* Actor)
 {
-	if (!PlayerState) return;
 	if (GamePhase != ERelayGamePhase::Playing) return;
+	if (!Balloon || !Actor) return;
 	
-	if (PlayerState == LastHitPlayer.Get())
+	if (Actor->FindComponentByClass<UPopTriggerComponent>())
 	{
-		ChangePhase(ERelayGamePhase::GameOver);
+		PopBalloon();
 		return;
 	}
 	
-	LastHitPlayer = PlayerState;
-	IncreaseRelayCount();
+	if (ABalloonKeepUpCharacter* Character = Cast<ABalloonKeepUpCharacter>(Actor))
+	{
+		if (APlayerState* PS = Character->GetPlayerState())
+		{
+			if (PS != LastHitPlayerState)
+			{
+				LastHitPlayerState = PS;
+				IncreaseRelayCount();
+			}
+			else
+			{
+				PopBalloon();
+			}
+		}
+	}
+
 }
 
 void ABalloonRelayGameMode::OnFixedStep_Implementation(float FixedDeltaTime)
@@ -82,6 +101,8 @@ void ABalloonRelayGameMode::ChangePhase(ERelayGamePhase NewPhase)
 	case ERelayGamePhase::GameOver:
 		EnterGameOverPhase();
 		break;
+	default:
+		break;
 	}
 }
 
@@ -92,8 +113,8 @@ void ABalloonRelayGameMode::Init()
 
 void ABalloonRelayGameMode::EnterWaitingPhase()
 {
-	ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>();
-	if (GS) GS->SetPlayEnabled(false);
+	
+	if (ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>()) GS->SetPlayEnabled(false);
 	
 	GetWorldTimerManager().SetTimer(WaitingCheckHandle, this, &ABalloonRelayGameMode::TryStartGame, 0.2f, true);
 }
@@ -162,7 +183,7 @@ void ABalloonRelayGameMode::TickCountdownPhase(float DeltaSecond)
 
 			if (CurrentSecond == 2)
 			{
-				//SpawnBalloon
+				SpawnBalloon();
 			}
 		}
 	}
@@ -171,7 +192,37 @@ void ABalloonRelayGameMode::TickCountdownPhase(float DeltaSecond)
 	{
 		FinishCountdown();
 	}
+}
+
+void ABalloonRelayGameMode::SpawnBalloon()
+{
+	if (!BalloonClass) return;
 	
+	TArray<AActor*> SpawnPoints;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABalloonSpawnPoint::StaticClass(), SpawnPoints);
+
+	if (SpawnPoints.Num() == 0) return;
+
+	int32 Index = FMath::RandRange(0, SpawnPoints.Num() - 1);
+	ABalloonSpawnPoint* SpawnPoint = Cast<ABalloonSpawnPoint>(SpawnPoints[Index]);
+	if (!SpawnPoint) return;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	ABalloon* SpawnedBalloon = GetWorld()->SpawnActor<ABalloon>(
+		BalloonClass,
+		SpawnPoint->GetSpawnLocation(),
+		FRotator::ZeroRotator,
+		SpawnParams
+	);
+
+	if (!SpawnedBalloon) return;
+
+	if (ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>())
+	{
+		GS->SetBalloon(SpawnedBalloon);
+	}
 }
 
 void ABalloonRelayGameMode::FinishCountdown()
@@ -202,12 +253,26 @@ void ABalloonRelayGameMode::SendResultToInstance()
 
 void ABalloonRelayGameMode::IncreaseRelayCount()
 {
-	// 릴레이 카운트 증가 후 브로드캐스트
+	if (ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>())
+	{
+		GS->AddRelayCount(1);
+	}
+}
+
+void ABalloonRelayGameMode::PopBalloon()
+{
+	if (ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>())
+	{
+		GS->GetBalloon()->PopBalloon();
+	}
+	
+	ChangePhase(ERelayGamePhase::GameOver);
 }
 
 FString ABalloonRelayGameMode::PhaseToString(ERelayGamePhase Phase)
 {
 	const UEnum* EnumPtr = StaticEnum<ERelayGamePhase>();
+	
 	if (!EnumPtr) return TEXT("InvalidPhase");
 	return EnumPtr->GetNameStringByValue((int64)Phase);
 }

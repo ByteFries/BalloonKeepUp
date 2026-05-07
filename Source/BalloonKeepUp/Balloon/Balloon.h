@@ -33,7 +33,12 @@ public:
 	virtual void ReceiveImpulseRequest_Implementation(const FImpulseRequest& Request) override;
 
 	void SetFreeze(bool bFreeze);
+
+	void PopBalloon();
 private:
+	UFUNCTION()
+	void HandleBeginOverlap(AActor* OverlappedActor, AActor* OtherActor);
+	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	UFUNCTION()
