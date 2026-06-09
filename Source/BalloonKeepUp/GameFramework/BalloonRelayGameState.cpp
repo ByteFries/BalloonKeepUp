@@ -6,6 +6,11 @@
 #include "Balloon/Balloon.h"
 #include "Net/UnrealNetwork.h"
 
+void ABalloonRelayGameState::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
 void ABalloonRelayGameState::AddRelayCount(int Value)
 {
 	if (!HasAuthority()) return;
@@ -35,7 +40,7 @@ void ABalloonRelayGameState::SetPlayEnabled(bool NewValue)
 	
 	bPlayEnabled = NewValue;
 	
-	ApplyGameplayFreeze(!bPlayEnabled);
+	OnPlayEnableChanged.Broadcast(bPlayEnabled);
 }
 
 void ABalloonRelayGameState::SetBalloon(ABalloon* InBalloon)
@@ -58,38 +63,11 @@ void ABalloonRelayGameState::OnRep_RelayCount()
 
 void ABalloonRelayGameState::OnRep_PlayEnabled()
 {
-	ApplyGameplayFreeze(!bPlayEnabled);
+	OnPlayEnableChanged.Broadcast(bPlayEnabled);
 }
 
 void ABalloonRelayGameState::OnRep_Balloon()
 {
-}
-
-void ABalloonRelayGameState::ApplyGameplayFreeze(bool bFreeze)
-{
-	APlayerController* PC = GetWorld()->GetFirstPlayerController();
-	UE_LOG(LogTemp, Warning, TEXT("ApplyGameplayFreeze called. Freeze=%d"), bFreeze);
-	if (PC)
-	{
-		PC->SetIgnoreMoveInput(bFreeze);
-		PC->SetIgnoreLookInput(bFreeze);
-	}
-
-	//for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-	//{
-	//	APlayerController* PC = It->Get();
-	//	if (PC && PC->IsLocalController())
-	//	{
-	//		// 이 PC만 freeze/unfreeze
-	//		PC->SetIgnoreMoveInput(false);
-	//		PC->SetIgnoreLookInput(false);
-	//	}
-	//}
-
-	if (Balloon)
-	{
-		Balloon->SetFreeze(bFreeze);
-	}
 }
 
 void ABalloonRelayGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

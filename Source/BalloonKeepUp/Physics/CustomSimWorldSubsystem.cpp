@@ -19,6 +19,7 @@ void UCustomSimWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Collection.InitializeDependency(UTimeManagerSubsystem::StaticClass());
 	
 	bIsActive = true;
+	bIsSimulating = false;
 	
 	UTimeManagerSubsystem* TimeManager = GetWorld()->GetSubsystem<UTimeManagerSubsystem>();
 
@@ -36,53 +37,91 @@ void UCustomSimWorldSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UCustomSimWorldSubsystem::Deinitialize()
 {
-	Super::Deinitialize();
-
-	UTimeManagerSubsystem* TimeManager = GetWorld()->GetSubsystem<UTimeManagerSubsystem>();
-
-	if (!TimeManager)
+	if (UTimeManagerSubsystem* TimeManager = GetWorld()->GetSubsystem<UTimeManagerSubsystem>())
 	{
-		return;
+		TimeManager->Unregister(this);
 	}
-
-	TimeManager->Unregister(this);
+	Super::Deinitialize();
 }
 
 bool UCustomSimWorldSubsystem::Register(UObject* Object)
 {
 	if (GetWorld()->GetNetMode() == NM_Client || !Object) return false;
 	
-	if (!Object->GetClass()->ImplementsInterface(UCustomSimulate::StaticClass()))
+	if (!Object->GetClass()->ImplementsInterface(UCustomSimulate::StaticClass())) return false;
+
+	if (Subscribers.Contains(Object) || PendingAdds.Contains(Object)) return false;
+	
+	if (bIsSimulating) PendingAdds.AddUnique(Object);
+	else
 	{
-		return false;
+		Subscribers.AddUnique(Object);
+		PendingRemoves.Remove(Object);
 	}
-
-	Objects.AddUnique(Object);
-
+	
 	return true;
 }
 
 void UCustomSimWorldSubsystem::Unregister(UObject* Object)
 {
-	if ((GetWorld()->GetNetMode() == NM_Client) || !Objects.Contains(Object)) return;
+	if ((GetWorld()->GetNetMode() == NM_Client) || !Subscribers.Contains(Object) || PendingRemoves.Contains(Object)) return;
 
-	Objects.Remove(Object);
+	if (bIsSimulating) PendingRemoves.AddUnique(Object);
+	else
+	{
+		ICustomSimulate::Execute_OnRemovedFromSimulation(Object);
+		Subscribers.Remove(Object);
+		PendingAdds.Remove(Object);
+	}
 }
 
 void UCustomSimWorldSubsystem::OnFixedStep_Implementation(float FixedDeltaTime)
 {
 	if (!bIsActive) return;
+
+	bIsSimulating = true;
 	
-	Objects.RemoveAll([](const TWeakObjectPtr<UObject>& Ptr)
-	{
-		return !Ptr.IsValid();
-	});
-	
-	for (const TWeakObjectPtr<UObject>& WeakObj : Objects)
+	for (const TWeakObjectPtr<UObject>& WeakObj : Subscribers)
 	{
 		if (UObject* Obj = WeakObj.Get())
 		{
 			ICustomSimulate::Execute_SimulatePhysics(Obj, FixedDeltaTime);
 		}
 	}
+
+	bIsSimulating = false;
+	
+	FlushPendingRemoves();
+	FlushPendingAdds();
+}
+
+void UCustomSimWorldSubsystem::FlushPendingAdds()
+{
+	for (auto Obj : PendingAdds)
+	{
+		if (!Obj.IsValid()) continue;
+		
+		Subscribers.AddUnique(Obj);
+	}
+
+	PendingAdds.Empty();
+}
+
+void UCustomSimWorldSubsystem::FlushPendingRemoves()
+{
+	for (auto Obj : PendingRemoves)
+	{
+		Subscribers.Remove(Obj);
+
+		if (!Obj.IsValid()) continue;
+		
+		ICustomSimulate::Execute_OnRemovedFromSimulation(Obj.Get());
+	}
+
+	PendingRemoves.Empty();
+
+	Subscribers.RemoveAll([](const TWeakObjectPtr<UObject>& Ptr)
+	{
+		return !Ptr.IsValid();
+	});
 }

@@ -25,12 +25,21 @@ public:
 
 	virtual void OnFixedStep_Implementation(float FixedDeltaTime) override;
 private:
-	TArray<TWeakObjectPtr<UObject>> Objects;
+	void FlushPendingAdds();
+	void FlushPendingRemoves();
+	
+	TArray<TWeakObjectPtr<UObject>> Subscribers;
 
+	TArray<TWeakObjectPtr<UObject>> PendingRemoves;
+
+	TArray<TWeakObjectPtr<UObject>> PendingAdds;
+	
 	UPROPERTY(EditDefaultsOnly)
 	float PhysicsTickInterval = 1/60.f;
 
 	float RemainingTime = 0.f; // 누적량
 
 	bool bIsActive = false;
+
+	bool bIsSimulating = false;
 };

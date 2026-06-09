@@ -22,12 +22,12 @@
 ABalloonKeepUpCharacter::ABalloonKeepUpCharacter()
 {
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+	
 	bUseControllerRotationPitch = false;
-	bUseControllerRotationYaw = false;
+	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
 
-	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 	
 	GetCharacterMovement()->JumpZVelocity = 500.f;
@@ -180,7 +180,7 @@ void ABalloonKeepUpCharacter::Landed(const FHitResult& Hit)
 void ABalloonKeepUpCharacter::Move(const FInputActionValue& Value)
 {
 	FVector2D MovementVector = Value.Get<FVector2D>();
-
+	
 	DoMove(MovementVector.X, MovementVector.Y);
 }
 

@@ -9,6 +9,7 @@
 class ABalloon;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCountdownChanged, int, NewValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRelayCountChanged, int, NewValue);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPlayEnableChanged, bool);
 
 
 UCLASS()
@@ -17,6 +18,8 @@ class BALLOONKEEPUP_API ABalloonRelayGameState : public AGameStateBase
 	GENERATED_BODY()
 
 public:
+	virtual void BeginPlay() override;
+	
 	void AddRelayCount(int Value);
 	
 	void SetCountdownValue(int NewValue);
@@ -26,12 +29,16 @@ public:
 	void SetBalloon(ABalloon* InBalloon);
 
 	ABalloon* GetBalloon() {return Balloon;}
+
+	bool GetPlayEnabled() {return bPlayEnabled;}
 	
 	UPROPERTY()
 	FOnCountdownChanged OnCountdownChanged;
 
 	UPROPERTY()
 	FOnRelayCountChanged OnRelayCountChanged;
+	
+	FOnPlayEnableChanged OnPlayEnableChanged;
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -46,8 +53,6 @@ protected:
 	
 	UFUNCTION()
 	void OnRep_Balloon();
-
-	void ApplyGameplayFreeze(bool bFreeze);
 	
 	UPROPERTY(ReplicatedUsing=OnRep_Countdown)
 	int CountdownValue = 0;

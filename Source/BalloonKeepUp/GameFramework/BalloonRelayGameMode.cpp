@@ -5,6 +5,7 @@
 
 #include "BalloonKeepUpCharacter.h"
 #include "BalloonRelayGameState.h"
+#include "BalloonKeepUpPlayerState.h"
 #include "Balloon/Balloon.h"
 #include "Balloon/BalloonSpawnPoint.h"
 #include "Balloon/PopTriggerComponent.h"
@@ -79,9 +80,9 @@ void ABalloonRelayGameMode::OnFixedStep_Implementation(float FixedDeltaTime)
 void ABalloonRelayGameMode::ChangePhase(ERelayGamePhase NewPhase)
 {
 	if (NewPhase == GamePhase) return;
-	UE_LOG(LogRelayGameMode, Warning, TEXT("[GameMode] Phase Exit: %s"), *PhaseToString(GamePhase));
+	UE_LOG(LogTemp, Warning, TEXT("[GameMode] Phase Exit: %s"), *PhaseToString(GamePhase));
 	GamePhase = NewPhase;
-	UE_LOG(LogRelayGameMode, Warning, TEXT("[GameMode] Phase Enter: %s"), *PhaseToString(GamePhase));
+	UE_LOG(LogTemp, Warning, TEXT("[GameMode] Phase Enter: %s"), *PhaseToString(GamePhase));
 
 	
 	switch (GamePhase)
@@ -113,44 +114,35 @@ void ABalloonRelayGameMode::Init()
 
 void ABalloonRelayGameMode::EnterWaitingPhase()
 {
-	
 	if (ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>()) GS->SetPlayEnabled(false);
 	
-	GetWorldTimerManager().SetTimer(WaitingCheckHandle, this, &ABalloonRelayGameMode::TryStartGame, 0.2f, true);
+	GetWorldTimerManager().SetTimer(WaitingCheckHandle, this, &ABalloonRelayGameMode::CheckAllPlayersReady, 0.2f, true);
 }
 
-bool ABalloonRelayGameMode::ArePlayersReady() const
+void ABalloonRelayGameMode::CheckAllPlayersReady()
 {
-	int ReadyCount = 0;
-
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-	{
-		APlayerController* PC = It->Get();
-		if (!PC) continue;
-
-		if (PC->PlayerState && PC->GetPawn())
-		{
-			ReadyCount++;
-		}
-	}
-
-	return ReadyCount >= 2;
-}
-
-void ABalloonRelayGameMode::PostLogin(APlayerController* NewPlayer)
-{
-	Super::PostLogin(NewPlayer);
-	
-	TryStartGame();
-}
-
-
-void ABalloonRelayGameMode::TryStartGame()
-{
-	if (ArePlayersReady())
+	if (AreAllPlayersReady())
 	{
 		ChangePhase(ERelayGamePhase::Countdown);
 	}
+}
+
+bool ABalloonRelayGameMode::AreAllPlayersReady() const
+{	
+	AGameStateBase* GS = GameState;
+	if (!GS) return false;
+
+	if (GS->PlayerArray.Num() < ExpectedPlayerCount) return false;
+	
+	for (APlayerState* BasePS : GS->PlayerArray)
+	{
+		ABalloonKeepUpPlayerState* PS = Cast<ABalloonKeepUpPlayerState>(BasePS);
+		if (!PS) return false;
+
+		if (!PS->IsReady()) return false;
+	}
+
+	return true;
 }
 
 void ABalloonRelayGameMode::EnterCountdownPhase()
@@ -263,7 +255,8 @@ void ABalloonRelayGameMode::PopBalloon()
 {
 	if (ABalloonRelayGameState* GS = GetGameState<ABalloonRelayGameState>())
 	{
-		GS->GetBalloon()->PopBalloon();
+		UE_LOG(LogTemp, Warning, TEXT("BalloonRelayGameMode::PopBalloon"));
+		GS->GetBalloon()->RequestPop();
 	}
 	
 	ChangePhase(ERelayGamePhase::GameOver);

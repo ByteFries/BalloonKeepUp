@@ -64,6 +64,9 @@ struct FImpulseRequest
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite)
+	FVector HitLocation;
+	
+	UPROPERTY(BlueprintReadWrite)
 	FVector Direction;
 	
 	UPROPERTY(BlueprintReadWrite)

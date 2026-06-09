@@ -8,7 +8,6 @@
 
 class UInputMappingContext;
 class UUserWidget;
-
 /**
  *  Basic PlayerController class for a third person game
  *  Manages input mappings
@@ -17,9 +16,21 @@ UCLASS(abstract)
 class ABalloonKeepUpPlayerController : public APlayerController
 {
 	GENERATED_BODY()
-	
-protected:
 
+protected:
+	virtual void SetIgnoreMoveInput(bool bNewMoveInput) override;
+	
+	void HandlePlayEnableChanged(bool bPlayEnabled);
+
+	void ApplyFreeze(bool bFreeze);
+
+	virtual void OnPossess(APawn* InPawn) override;
+
+	void TryReady();
+
+	UFUNCTION(Server, Reliable)
+	void Server_ReportReady();
+	
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category ="Input|Input Mappings")
 	TArray<UInputMappingContext*> DefaultMappingContexts;
@@ -40,5 +51,11 @@ protected:
 
 	/** Input mapping context setup */
 	virtual void SetupInputComponent() override;
+	
+	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 
+	virtual void BeginPlayingState() override;
 };
+
+
+

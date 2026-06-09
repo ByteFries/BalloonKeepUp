@@ -101,7 +101,17 @@ void UImpulseBoxComponent::HandleBeginOverlap(UPrimitiveComponent* OverlappedCom
 		return;
 	}
 	Context.TargetActor = OtherActor;
+	
 	FImpulseRequest Request = CommonData.Strategy->Compute(Context);
+	//FHitResult Hit;
+	//FCollisionShape Shape = FCollisionShape::MakeSphere(Radius);
+	//GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_GameTraceChannel1, );
+
+	Request.HitLocation =
+		SweepResult.bBlockingHit
+		? FVector(SweepResult.ImpactPoint)
+		: OtherActor->GetActorLocation();
+	
 	IImpulseReceiver::Execute_ReceiveImpulseRequest(OtherActor, Request);
 }
 

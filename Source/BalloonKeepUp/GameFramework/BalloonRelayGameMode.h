@@ -35,14 +35,15 @@ public:
 	void HandleBalloonOverlap(ABalloon* Balloon, AActor* Actor);
 	
 	virtual void OnFixedStep_Implementation(float FixedDeltaTime) override;
-private:	
+
+	void CheckAllPlayersReady();
+private:
 	void ChangePhase(ERelayGamePhase NewPhase);
 
 	void Init();
 
 	void EnterWaitingPhase();
-	bool ArePlayersReady() const;
-	void TryStartGame();
+	bool AreAllPlayersReady() const;
 	
 	void EnterCountdownPhase();
 	void TickCountdownPhase(float DeltaTime);
@@ -61,8 +62,6 @@ private:
 
 	void PopBalloon();
 
-	virtual void PostLogin(APlayerController* NewPlayer) override;
-
 	static FString PhaseToString(ERelayGamePhase Phase);
 	
 	float CountdownTimeRemaining = 3.f;
@@ -78,5 +77,7 @@ private:
 	TSubclassOf<ABalloon> BalloonClass;
 	
 	TObjectPtr<APlayerState> LastHitPlayerState;
+
+	int ExpectedPlayerCount = 2;
 };
 

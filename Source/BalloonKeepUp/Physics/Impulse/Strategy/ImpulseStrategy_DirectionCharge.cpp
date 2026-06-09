@@ -18,12 +18,12 @@ FImpulseRequest UImpulseStrategy_DirectionCharge::Compute_Implementation(const F
 
 	Direction = Direction.GetSafeNormal();
 	
-	UE_LOG(LogTemp, Log, TEXT("Direction: %s"), *Direction.ToString());
+	//UE_LOG(LogTemp, Log, TEXT("Direction: %s"), *Direction.ToString());
 	
 	
 	FVector FinalDirection = ResolveDirection(Context, Direction);
 	
-	UE_LOG(LogTemp, Log, TEXT("Final Direction: %s"), *FinalDirection.ToString());
+	//UE_LOG(LogTemp, Log, TEXT("Final Direction: %s"), *FinalDirection.ToString());
 	
 	float Power = Context.BasePower;
 	
@@ -33,10 +33,10 @@ FImpulseRequest UImpulseStrategy_DirectionCharge::Compute_Implementation(const F
 	if (const UImpulseFragment_Charge* Charge = Context.GetFragment<UImpulseFragment_Charge>())
 	{
 		Request.Power *= Charge->ChargeRatio;
-		UE_LOG(LogTemp, Log, TEXT("BasePower=%f, Ratio=%f, FinalPower=%f"),
-		Context.BasePower,
-		Charge->ChargeRatio,
-		Request.Power);
+		//UE_LOG(LogTemp, Log, TEXT("BasePower=%f, Ratio=%f, FinalPower=%f"),
+		//Context.BasePower,
+		//Charge->ChargeRatio,
+		//Request.Power);
 	}
 	return Request;
 }

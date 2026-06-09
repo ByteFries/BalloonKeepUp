@@ -26,4 +26,9 @@ public:
 	void SimulatePhysics(float DeltaTime);
 
 	virtual void SimulatePhysics_Implementation(float DeltaTime) {}
+	
+	UFUNCTION(BlueprintNativeEvent)
+	void OnRemovedFromSimulation();
+
+	virtual void OnRemovedFromSimulation_Implementation() {}
 };

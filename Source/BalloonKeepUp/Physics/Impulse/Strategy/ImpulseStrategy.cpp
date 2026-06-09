@@ -27,8 +27,8 @@ FVector UImpulseStrategy::ResolveDirection(const FImpulseContext& Context, const
 	case EImpulseDirectionSpace::VolumeLocal:
 		FVector FinalDirection = Context.VolumeTransform.TransformVectorNoScale(Direction).GetSafeNormal();
 		
-		UE_LOG(LogTemp, Log, TEXT("Transform: %s"), *Context.VolumeTransform.ToString());
-		UE_LOG(LogTemp, Log, TEXT("Volume Direction: %s"), *FinalDirection.ToString());
+		//UE_LOG(LogTemp, Log, TEXT("Transform: %s"), *Context.VolumeTransform.ToString());
+		//UE_LOG(LogTemp, Log, TEXT("Volume Direction: %s"), *FinalDirection.ToString());
 		return FinalDirection;
 	}
 
